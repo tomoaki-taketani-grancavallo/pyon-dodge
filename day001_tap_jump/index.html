@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ワンタップ・ジャンプ | Day 1 - 100日アプリチャレンジ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+    background: linear-gradient(160deg, #1b2a4a 0%, #2e4370 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100%; padding: 12px; color: #fff;
+  }
+  #wrap { position: relative; width: min(100%, 900px); }
+  canvas {
+    display: block; width: 100%; aspect-ratio: 800 / 450;
+    border-radius: 14px; touch-action: none; user-select: none;
+    -webkit-user-select: none; box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  }
+  footer { margin-top: 10px; font-size: 12px; opacity: .6; }
+  #overlay {
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  #overlay.hidden { display: none; }
+  .panel {
+    pointer-events: auto; text-align: center;
+    background: rgba(255,255,255,.96); color: #24324a;
+    border-radius: 18px; padding: 26px 34px; max-width: 86%;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .panel.hidden { display: none; }
+  .panel h1 { font-size: 28px; margin-bottom: 8px; }
+  .panel h2 { font-size: 24px; margin-bottom: 8px; }
+  .panel p { font-size: 14px; line-height: 1.7; margin-bottom: 14px; }
+  .panel button {
+    display: block; width: 100%; margin: 8px 0; padding: 12px 18px;
+    font-size: 16px; font-weight: 700; color: #fff; cursor: pointer;
+    background: linear-gradient(135deg, #ff8a5c, #ff5e62);
+    border: none; border-radius: 12px;
+  }
+  .panel button:active { transform: scale(.97); }
+  .panel button.ghost {
+    background: #eef1f6; color: #47597a;
+  }
+  .scorebig { font-size: 56px; font-weight: 800; line-height: 1.2; color: #ff5e62; }
+  .best { font-size: 14px; color: #6b7a94; margin: 6px 0 10px; }
+  .note { font-size: 11px; color: #98a4b8; margin-top: 10px; }
+  #newBest {
+    display: inline-block; background: #ffce3a; color: #7a5b00;
+    font-weight: 800; font-size: 12px; border-radius: 8px; padding: 2px 8px;
+  }
+  #newBest.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <div id="overlay">
+    <div id="panelTitle" class="panel">
+      <h1>🐦 ワンタップ・ジャンプ</h1>
+      <p>タップ / スペースキーでジャンプ！<br>障害物と穴をよけて、どこまでも走りぬけろ。<br>長押しでふんわり大ジャンプ。</p>
+      <button id="btnStart">スタート</button>
+      <div class="best">ベストスコア: <span id="bestTitle">0</span></div>
+    </div>
+    <div id="panelRevive" class="panel hidden">
+      <h2>💥 クラッシュ！</h2>
+      <p>スコア: <b id="scoreRevive">0</b></p>
+      <button id="btnRevive">🎬 復活する（あと1回）</button>
+      <button id="btnGiveup" class="ghost">あきらめる</button>
+      <p class="note">※製品版では動画リワード広告の視聴で復活する想定（現在はモック）</p>
+    </div>
+    <div id="panelOver" class="panel hidden">
+      <h2>ゲームオーバー</h2>
+      <div class="scorebig" id="scoreOver">0</div>
+      <div class="best">ベスト: <span id="bestOver">0</span> <span id="newBest" class="hidden">NEW!</span></div>
+      <button id="btnRetry">もう一度あそぶ</button>
+      <button id="btnShare" class="ghost">📤 シェアする</button>
+      <button id="btnSave" class="ghost">💾 結果画像を保存</button>
+    </div>
+  </div>
+</div>
+<footer>Day 1 / 100 — 100日アプリチャレンジ（2026-07-05）</footer>
+
+<script>
+(() => {
+  'use strict';
+  const BEST_KEY = 'day001_tapjump_best';
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = 800, H = 450, GROUND_Y = H - 70;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const $ = id => document.getElementById(id);
+  const panels = { title: $('panelTitle'), revive: $('panelRevive'), over: $('panelOver') };
+
+  function showPanel(name) {
+    const ov = $('overlay');
+    if (!name) { ov.classList.add('hidden'); return; }
+    ov.classList.remove('hidden');
+    for (const k in panels) panels[k].classList.toggle('hidden', k !== name);
+  }
+
+  let state = 'title'; // title | play | dead | over
+  let player, segments, obstacles, clouds;
+  let speed, dist, score, camera, reviveLeft, invUntil, jumpHeld, overAt;
+  let best = +(localStorage.getItem(BEST_KEY) || 0);
+
+  function reset() {
+    player = { x: 130, y: GROUND_Y, vy: 0, w: 34, h: 42, onGround: true };
+    segments = [{ x: -200, w: 1800, hole: false }];
+    obstacles = [];
+    clouds = [];
+    for (let i = 0; i < 5; i++) {
+      clouds.push({ x: Math.random() * W, y: 30 + Math.random() * 140, s: 0.5 + Math.random() * 0.8 });
+    }
+    speed = 5.5; dist = 0; score = 0; camera = 0;
+    reviveLeft = 1; invUntil = 0; jumpHeld = false;
+  }
+
+  function addObstacle(minX, maxX) {
+    if (maxX <= minX) return;
+    const ow = 24 + Math.random() * 20;
+    const oh = 28 + Math.random() * 34;
+    const x = minX + Math.random() * (maxX - minX);
+    obstacles.push({ x, y: GROUND_Y - oh, w: ow, h: oh, kind: Math.random() < 0.5 ? 0 : 1 });
+  }
+
+  function ensureWorld() {
+    let last = segments[segments.length - 1];
+    while (last.x + last.w < camera + W + 500) {
+      const start = last.x + last.w;
+      if (!last.hole && dist > 800 && Math.random() < 0.26) {
+        const w = 90 + Math.random() * Math.min(70, speed * 6);
+        segments.push({ x: start, w, hole: true });
+      } else {
+        const w = 280 + Math.random() * 320;
+        const seg = { x: start, w, hole: false };
+        segments.push(seg);
+        if (dist > 200 && Math.random() < 0.85) {
+          if (w > 560) {
+            addObstacle(seg.x + 60, seg.x + 180);
+            addObstacle(seg.x + w - 150, seg.x + w - 70);
+          } else {
+            addObstacle(seg.x + 60, seg.x + w - 100);
+          }
+        }
+      }
+      last = segments[segments.length - 1];
+    }
+    while (segments.length && segments[0].x + segments[0].w < camera - 300) segments.shift();
+    obstacles = obstacles.filter(o => o.x + o.w > camera - 300);
+  }
+
+  function groundUnder(wx) {
+    for (const s of segments) {
+      if (wx >= s.x && wx < s.x + s.w) return !s.hole;
+    }
+    return true;
+  }
+
+  function jump() {
+    if (state === 'play' && player.onGround) {
+      player.vy = -15.5;
+      player.onGround = false;
+    }
+  }
+
+  // dt は 60fps を 1.0 とするフレーム単位（120Hz端末でも速度が変わらないようにする）
+  function update(dt) {
+    if (state !== 'play') return;
+    speed = Math.min(13, speed + 0.0011 * dt);
+    camera += speed * dt;
+    dist += speed * dt;
+    score = Math.floor(dist / 10);
+    ensureWorld();
+
+    const g = (jumpHeld && player.vy < 0) ? 0.55 : 0.95;
+    player.vy += g * dt;
+    player.y += player.vy * dt;
+
+    const wx = camera + player.x;
+    if (player.y >= GROUND_Y && groundUnder(wx)) {
+      player.y = GROUND_Y;
+      player.vy = 0;
+      player.onGround = true;
+    } else {
+      player.onGround = false;
+    }
+
+    if (player.y - player.h > H + 40) { die(); return; }
+
+    if (performance.now() > invUntil) {
+      const px = wx - player.w / 2 + 4, py = player.y - player.h + 4;
+      const pw = player.w - 8, ph = player.h - 6;
+      for (const o of obstacles) {
+        if (px < o.x + o.w - 3 && px + pw > o.x + 3 && py < o.y + o.h && py + ph > o.y + 2) {
+          die();
+          return;
+        }
+      }
+    }
+  }
+
+  function die() {
+    state = 'dead';
+    if (reviveLeft > 0) {
+      $('scoreRevive').textContent = score;
+      showPanel('revive');
+    } else {
+      finish();
+    }
+  }
+
+  function finish() {
+    state = 'over';
+    overAt = performance.now();
+    if (score > best) {
+      best = score;
+      localStorage.setItem(BEST_KEY, best);
+      $('newBest').classList.remove('hidden');
+    } else {
+      $('newBest').classList.add('hidden');
+    }
+    $('scoreOver').textContent = score;
+    $('bestOver').textContent = best;
+    showPanel('over');
+  }
+
+  function revive() {
+    reviveLeft--;
+    for (const s of segments) if (s.x < camera + W + 200) s.hole = false;
+    obstacles = obstacles.filter(o => o.x > camera + W + 150);
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.onGround = true;
+    invUntil = performance.now() + 1800;
+    showPanel(null);
+    state = 'play';
+  }
+
+  function start() {
+    reset();
+    showPanel(null);
+    state = 'play';
+  }
+
+  // ---- 描画 ----
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawCloud(x, y, s) {
+    ctx.beginPath();
+    ctx.arc(x, y, 18 * s, 0, 7);
+    ctx.arc(x + 18 * s, y + 6 * s, 14 * s, 0, 7);
+    ctx.arc(x - 18 * s, y + 6 * s, 13 * s, 0, 7);
+    ctx.fill();
+  }
+
+  function drawPlayer() {
+    if (performance.now() < invUntil && Math.floor(performance.now() / 120) % 2) return;
+    const x = player.x - player.w / 2, y = player.y - player.h;
+    ctx.fillStyle = '#e0534a';
+    if (player.onGround && state === 'play') {
+      const p = Math.floor(performance.now() / 85) % 2;
+      ctx.fillRect(x + 5 + (p ? 2 : 0), player.y - 6, 8, 6);
+      ctx.fillRect(x + player.w - 13 - (p ? 2 : 0), player.y - 6, 8, 6);
+    } else {
+      ctx.fillRect(x + 5, player.y - 8, 8, 8);
+      ctx.fillRect(x + player.w - 13, player.y - 8, 8, 8);
+    }
+    ctx.fillStyle = '#ff6b5e';
+    roundRect(x, y, player.w, player.h - 6, 10);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x + player.w - 11, y + 14, 7, 0, 7); ctx.fill();
+    ctx.fillStyle = '#233';
+    ctx.beginPath(); ctx.arc(x + player.w - 9, y + 14, 3.5, 0, 7); ctx.fill();
+  }
+
+  function draw() {
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#8ec9ff');
+    sky.addColorStop(1, '#e3f3ff');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (const c of clouds) {
+      c.x -= (state === 'play' ? speed * 0.25 * c.s : 0.2 * c.s);
+      if (c.x < -80) { c.x = W + 60; c.y = 30 + Math.random() * 140; }
+      drawCloud(c.x, c.y, c.s);
+    }
+
+    for (const s of segments) {
+      if (s.hole) continue;
+      const sx = s.x - camera;
+      if (sx > W || sx + s.w < 0) continue;
+      ctx.fillStyle = '#8d6748';
+      ctx.fillRect(sx, GROUND_Y, s.w, H - GROUND_Y);
+      ctx.fillStyle = '#6dbf5b';
+      ctx.fillRect(sx, GROUND_Y, s.w, 10);
+    }
+
+    for (const o of obstacles) {
+      const ox = o.x - camera;
+      if (ox > W || ox + o.w < 0) continue;
+      if (o.kind === 0) {
+        ctx.fillStyle = '#b0733c';
+        ctx.fillRect(ox, o.y, o.w, o.h);
+        ctx.strokeStyle = '#7d4f26';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ox + 1, o.y + 1, o.w - 2, o.h - 2);
+        ctx.beginPath();
+        ctx.moveTo(ox + 2, o.y + 2);
+        ctx.lineTo(ox + o.w - 2, o.y + o.h - 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#3f9e4d';
+        roundRect(ox, o.y, o.w, o.h, 6);
+        ctx.fill();
+        ctx.fillStyle = '#8fd18a';
+        ctx.fillRect(ox + o.w / 2 - 2, o.y + 6, 4, o.h - 12);
+      }
+    }
+
+    drawPlayer();
+
+    if (state !== 'title') {
+      ctx.fillStyle = '#234';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('SCORE ' + score, 16, 38);
+      ctx.textAlign = 'right';
+      ctx.fillText('BEST ' + Math.max(best, score), W - 16, 38);
+    }
+  }
+
+  // ---- 結果画像（シェアカード） ----
+  function makeCard() {
+    const c = document.createElement('canvas');
+    c.width = 800; c.height = 420;
+    const x = c.getContext('2d');
+    const grad = x.createLinearGradient(0, 0, 800, 420);
+    grad.addColorStop(0, '#ff9a56');
+    grad.addColorStop(1, '#ff5e62');
+    x.fillStyle = grad;
+    x.fillRect(0, 0, 800, 420);
+    x.fillStyle = 'rgba(255,255,255,.14)';
+    x.beginPath(); x.arc(90, 350, 130, 0, 7); x.fill();
+    x.beginPath(); x.arc(720, 60, 100, 0, 7); x.fill();
+    x.fillStyle = '#fff';
+    x.textAlign = 'center';
+    x.font = 'bold 40px sans-serif';
+    x.fillText('🐦 ワンタップ・ジャンプ', 400, 84);
+    x.font = 'bold 130px sans-serif';
+    x.fillText(String(score), 400, 240);
+    x.font = 'bold 24px sans-serif';
+    x.fillText('SCORE', 400, 282);
+    x.font = '20px sans-serif';
+    x.fillText('BEST ' + best + '　' + new Date().toLocaleDateString('ja-JP'), 400, 340);
+    x.fillText('#100日アプリチャレンジ Day 1/100', 400, 378);
+    return new Promise(r => c.toBlob(r, 'image/png'));
+  }
+
+  async function saveImage() {
+    const b = await makeCard();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'tapjump_score_' + score + '.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  async function shareImage() {
+    const b = await makeCard();
+    const f = new File([b], 'tapjump_score.png', { type: 'image/png' });
+    const data = { files: [f], title: 'ワンタップ・ジャンプ', text: 'スコア ' + score + '！ #100日アプリチャレンジ Day1' };
+    if (navigator.canShare && navigator.canShare(data)) {
+      try { await navigator.share(data); } catch (e) { /* キャンセル時は何もしない */ }
+    } else {
+      await saveImage();
+    }
+  }
+
+  // ---- 入力 ----
+  canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    jumpHeld = true;
+    if (state === 'title') start();
+    else if (state === 'play') jump();
+  });
+  window.addEventListener('pointerup', () => { jumpHeld = false; });
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'Space' && e.code !== 'ArrowUp') return;
+    e.preventDefault();
+    if (e.repeat) return;
+    jumpHeld = true;
+    if (state === 'title') start();
+    else if (state === 'play') jump();
+    else if (state === 'over' && performance.now() - overAt > 500) start();
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') jumpHeld = false;
+  });
+
+  $('btnStart').onclick = start;
+  $('btnRetry').onclick = start;
+  $('btnRevive').onclick = revive;
+  $('btnGiveup').onclick = finish;
+  $('btnSave').onclick = saveImage;
+  $('btnShare').onclick = shareImage;
+
+  // ---- 起動 ----
+  let lastT = performance.now();
+  function loop() {
+    const now = performance.now();
+    const dt = Math.min((now - lastT) / 16.667, 2.5);
+    lastT = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  reset();
+  $('bestTitle').textContent = best;
+  showPanel('title');
+  loop();
+})();
+</script>
+</body>
+</html>
