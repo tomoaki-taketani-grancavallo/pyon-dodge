@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GranCavallo Games｜100日アプリチャレンジ</title>
+<meta name="description" content="100日間、毎日1つミニゲーム・アプリを作る挑戦。ブラウザですぐ遊べます。100-Day App Challenge — a new mini game every day.">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+    background: linear-gradient(160deg, #1b2a4a 0%, #2e4370 100%);
+    color: #fff; min-height: 100vh; padding: 32px 16px;
+  }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 26px; margin-bottom: 6px; }
+  .sub { color: #aebcd8; font-size: 14px; margin-bottom: 28px; line-height: 1.7; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  a.card {
+    display: flex; align-items: center; gap: 14px;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 16px; padding: 14px 16px; text-decoration: none; color: #fff;
+    transition: background .15s;
+  }
+  a.card:hover { background: rgba(255,255,255,.14); }
+  .card img { width: 56px; height: 56px; border-radius: 14px; }
+  .card .t { font-weight: 700; font-size: 16px; }
+  .card .d { font-size: 12px; color: #aebcd8; margin-top: 3px; line-height: 1.5; }
+  .day { font-size: 11px; color: #7f92b8; }
+  footer { margin-top: 40px; font-size: 12px; color: #7f92b8; text-align: center; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎮 GranCavallo Games</h1>
+  <p class="sub">100日間、毎日1つミニゲーム・アプリを作る挑戦（100日アプリチャレンジ）。<br>すべてブラウザで今すぐ遊べます。スマホならホーム画面に追加してアプリのように。<br>A new mini game every day for 100 days. Play instantly in your browser.</p>
+  <div class="grid">
+    <a class="card" href="./day001_tap_jump/">
+      <img src="./day001_tap_jump/icon-192.png" alt="ピョン避け">
+      <div>
+        <div class="day">Day 1 / 100</div>
+        <div class="t">🐰 ピョン避け <span style="font-weight:400;font-size:12px;">Pyon Dodge! / 蹦蹦避</span></div>
+        <div class="d">奥へ走る3レーンランナー。スワイプでよけて、タップでジャンプ！</div>
+      </div>
+    </a>
+  </div>
+  <footer>
+    100-Day App Challenge by GranCavallo<br>
+    Day 1: 2026-07-05 〜 Day 100: 2026-10-12
+  </footer>
+</div>
+</body>
+</html>
