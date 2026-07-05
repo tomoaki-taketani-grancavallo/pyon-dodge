@@ -66,7 +66,7 @@
   <div id="overlay">
     <div id="panelTitle" class="panel">
       <h1>🏃 ワンタップ・ジャンプ</h1>
-      <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>木箱はよけて、バーは飛び越えろ。</p>
+      <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）</p>
       <button id="btnStart">スタート</button>
       <div class="best">ベストスコア: <span id="bestTitle">0</span></div>
     </div>
@@ -109,6 +109,8 @@
   const XSCALE = 1.4;             // 世界x→画面xの倍率(手前)
   const LANE_W = 100;             // レーン幅(世界座標)
   const SPAWN_Z = 420;            // 障害物の出現距離
+  const HURDLE_CLEAR = 50;        // バーを飛び越えたとみなす高さ(px)。バー上端の見た目(約53px)に合わせる
+  const BOX_CLEAR = 140;          // 木箱を飛び越えたとみなす高さ(px)。箱の見た目(約134px)＋余裕。実質2段ジャンプ専用
 
   function proj(z, wx) {
     const s = DNEAR / (DNEAR + Math.max(z, -30));
@@ -129,7 +131,9 @@
   let laneTarget, laneF, jumpH, vy, jumpHeld, jumpCount;
   let speed, dist, score, reviveLeft, invUntil, overAt;
   let obstacles, trees, clouds, puffs, zAcc, nextGap;
-  let best = +(localStorage.getItem(BEST_KEY) || 0);
+  // ストレージ不可環境(プライベートブラウジング等)でも起動できるようにする
+  let best = 0;
+  try { best = +(localStorage.getItem(BEST_KEY) || 0); } catch (e) {}
 
   function reset() {
     laneTarget = 1; laneF = 1; jumpH = 0; vy = 0; jumpHeld = false; jumpCount = 0;
@@ -219,9 +223,10 @@
       for (const o of obstacles) {
         if (o.z < 10 && o.z > -8) {
           if (o.kind === 2) {
-            if (jumpH < 45) { die(); return; }
+            if (jumpH < HURDLE_CLEAR) { die(); return; }
           } else if (Math.abs(laneF - o.lane) < 0.55) {
-            if (o.kind === 0 || jumpH < 45) { die(); return; }
+            const clearH = o.kind === 0 ? BOX_CLEAR : HURDLE_CLEAR;
+            if (jumpH < clearH) { die(); return; }
           }
         }
       }
@@ -243,7 +248,7 @@
     overAt = performance.now();
     if (score > best) {
       best = score;
-      localStorage.setItem(BEST_KEY, best);
+      try { localStorage.setItem(BEST_KEY, best); } catch (e) {}
       $('newBest').classList.remove('hidden');
     } else {
       $('newBest').classList.add('hidden');
@@ -322,7 +327,7 @@
     } else {
       // ハードル／全レーンバー（低い・飛び越える）
       const w = (o.kind === 2 ? 304 : 84) * XSCALE * p.s;
-      const barH = 16 * XSCALE * p.s, legH = 30 * XSCALE * p.s;
+      const barH = 16 * XSCALE * p.s, legH = 22 * XSCALE * p.s;
       const x = p.x - w / 2, y = p.y - legH - barH;
       ctx.fillStyle = '#5a6270';
       ctx.fillRect(x + 2, p.y - legH, Math.max(2, 5 * p.s), legH);
@@ -443,7 +448,7 @@
     obstacles.sort((a, b) => b.z - a.z);
     for (const o of obstacles) if (o.z >= 0) drawObstacle(o);
     drawPlayer();
-    for (const o of obstacles) if (o.z < 0) drawObstacle(o);
+    for (const o of obstacles) if (o.z < 0 && o.z > -15) drawObstacle(o);
 
     // 2段ジャンプの煙エフェクト
     for (const pf of puffs) {
@@ -537,6 +542,10 @@
     if (!gesture.used && dur < 350 && Math.hypot(dx, dy) < 24) jump();
     gesture = null;
   });
+  // OSにタッチを奪われた場合(通知シェード等)の残留対策
+  canvas.addEventListener('pointercancel', () => { gesture = null; });
+  // フォーカス喪失時にキー押下状態を取り逃さないようにする
+  window.addEventListener('blur', () => { jumpHeld = false; gesture = null; });
   window.addEventListener('keydown', e => {
     const c = e.code;
     if (c === 'Space' || c === 'ArrowUp' || c === 'KeyW') {
