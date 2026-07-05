@@ -67,11 +67,19 @@
   }
   #newBest.hidden { display: none; }
   .hidden { display: none !important; }
+  #btnMute {
+    position: absolute; bottom: 12px; right: 10px; z-index: 5;
+    width: 42px; height: 42px; border-radius: 50%; border: none;
+    background: rgba(0,0,0,.28); font-size: 20px; cursor: pointer;
+    line-height: 42px; text-align: center; padding: 0;
+  }
+  #btnMute:active { transform: scale(.92); }
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="game"></canvas>
+  <button id="btnMute" aria-label="sound">🔊</button>
   <div id="overlay">
     <div id="panelTitle" class="panel">
       <h1 id="appTitle">🐰 ピョン避け</h1>
@@ -319,6 +327,7 @@
 
   function die() {
     state = 'dead';
+    stopMusic();
     if (reviveLeft > 0) {
       $('scoreRevive').textContent = score;
       showPanel('revive');
@@ -329,6 +338,7 @@
 
   function finish() {
     state = 'over';
+    stopMusic();
     overAt = performance.now();
     if (score > best) {
       best = score;
@@ -349,12 +359,14 @@
     invUntil = performance.now() + 1800;
     showPanel(null);
     state = 'play';
+    startMusic();
   }
 
   function start() {
     reset();
     showPanel(null);
     state = 'play';
+    startMusic();
   }
 
   // ---- 描画 ----
@@ -658,6 +670,134 @@
   $('btnSave').onclick = saveImage;
   $('btnShare').onclick = shareImage;
   $('btnShareRevive').onclick = shareImage;
+
+  // ---- BGM（Web Audio APIで生成するチップチューン。音声ファイル不要） ----
+  const MUTE_KEY = 'day001_muted';
+  let audio = null;
+  let muted = false;
+  try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) {}
+
+  function initAudio() {
+    if (audio) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    // ハイハット用ホワイトノイズ
+    const noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.1), ctx.sampleRate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    audio = { ctx, master, noise, nextBar: 0, bar: 0, timer: null };
+    applyMute();
+  }
+
+  function applyMute() {
+    if (audio) audio.master.gain.value = muted ? 0 : 0.4;
+    $('btnMute').textContent = muted ? '🔇' : '🔊';
+  }
+
+  function startMusic() {
+    initAudio();
+    if (!audio) return;
+    if (audio.ctx.state === 'suspended') audio.ctx.resume();
+    if (!audio.timer) {
+      audio.nextBar = audio.ctx.currentTime + 0.05;
+      audio.timer = setInterval(scheduleMusic, 200);
+    }
+  }
+
+  function stopMusic() {
+    if (audio && audio.timer) {
+      clearInterval(audio.timer);
+      audio.timer = null;
+    }
+  }
+
+  // 200msごとに呼ばれ、0.6秒先まで小節単位で予約する
+  function scheduleMusic() {
+    const ctx = audio.ctx;
+    while (audio.nextBar < ctx.currentTime + 0.6) {
+      playBar(audio.nextBar, audio.bar);
+      const bpm = 132 + speed * 6; // ゲームが速くなるとテンポも上がる
+      audio.nextBar += (60 / bpm) * 4;
+      audio.bar++;
+    }
+  }
+
+  const midiF = m => 440 * Math.pow(2, (m - 69) / 12);
+  // C → G → Am → F の4小節ループ（8分音符×8）
+  const MELODY = [
+    [76, 84, 79, 84, 76, 84, 79, 88],
+    [74, 83, 79, 83, 74, 83, 79, 86],
+    [72, 81, 76, 81, 72, 81, 76, 84],
+    [72, 81, 77, 81, 84, 81, 77, 81],
+  ];
+  const BASS = [36, 43, 45, 41];
+
+  function playBar(t0, barIdx) {
+    const ctx = audio.ctx;
+    const bpm = 132 + speed * 6;
+    const e8 = (60 / bpm) * 4 / 8;
+    const c = barIdx % 4;
+    for (let i = 0; i < 8; i++) {
+      const t = t0 + i * e8;
+      tone('square', midiF(MELODY[c][i]), t, e8 * 0.9, 0.045);
+      tone('triangle', midiF(BASS[c] + (i % 2 ? 12 : 0)), t, e8 * 0.85, 0.09);
+      hat(t, i % 2 ? 0.028 : 0.015);
+      if (i === 0 || i === 4) kick(t);
+    }
+  }
+
+  function tone(type, freq, t, dur, vol) {
+    const ctx = audio.ctx;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(audio.master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  function hat(t, vol) {
+    const ctx = audio.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = audio.noise;
+    const f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = 'highpass';
+    f.frequency.value = 6500;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    src.connect(f); f.connect(g); g.connect(audio.master);
+    src.start(t); src.stop(t + 0.05);
+  }
+
+  function kick(t) {
+    const ctx = audio.ctx;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
+    g.gain.setValueAtTime(0.28, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+    o.connect(g); g.connect(audio.master);
+    o.start(t); o.stop(t + 0.15);
+  }
+
+  $('btnMute').onclick = () => {
+    muted = !muted;
+    try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch (e) {}
+    applyMute();
+  };
+  applyMute();
+  // タブが裏に回ったら止め、戻ったら再開（プレイ中のみ）
+  if (document.addEventListener) {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopMusic();
+      else if (state === 'play') startMusic();
+    });
+  }
 
   // ---- PWA（ホーム画面に追加・オフライン対応） ----
   if ('serviceWorker' in navigator) {
