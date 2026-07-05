@@ -61,8 +61,8 @@
   <canvas id="game"></canvas>
   <div id="overlay">
     <div id="panelTitle" class="panel">
-      <h1>🐦 ワンタップ・ジャンプ</h1>
-      <p>タップ / スペースキーでジャンプ！<br>障害物と穴をよけて、どこまでも走りぬけろ。<br>長押しでふんわり大ジャンプ。</p>
+      <h1>🏃 ワンタップ・ジャンプ</h1>
+      <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>木箱はよけて、バーは飛び越えろ。</p>
       <button id="btnStart">スタート</button>
       <div class="best">ベストスコア: <span id="bestTitle">0</span></div>
     </div>
@@ -91,11 +91,25 @@
   const BEST_KEY = 'day001_tapjump_best';
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const W = 800, H = 450, GROUND_Y = H - 70;
+  const W = 800, H = 450;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // --- 疑似3D投影 ---
+  // 世界座標: wx = 左右(レーン中心 -100/0/+100)、z = プレイヤーからの前方距離
+  const HORIZON = 150;            // 地平線のy
+  const PROJ = 260;               // 地平線からプレイヤー足元(y=410)までの距離
+  const DNEAR = 60;               // 透視の焦点距離
+  const XSCALE = 2.27;            // 世界x→画面xの倍率(手前)
+  const LANE_W = 100;             // レーン幅(世界座標)
+  const SPAWN_Z = 420;            // 障害物の出現距離
+
+  function proj(z, wx) {
+    const s = DNEAR / (DNEAR + Math.max(z, -30));
+    return { s, x: W / 2 + wx * XSCALE * s, y: HORIZON + PROJ * s };
+  }
 
   const $ = id => document.getElementById(id);
   const panels = { title: $('panelTitle'), revive: $('panelRevive'), over: $('panelOver') };
@@ -108,101 +122,94 @@
   }
 
   let state = 'title'; // title | play | dead | over
-  let player, segments, obstacles, clouds;
-  let speed, dist, score, camera, reviveLeft, invUntil, jumpHeld, overAt;
+  let laneTarget, laneF, jumpH, vy, jumpHeld;
+  let speed, dist, score, reviveLeft, invUntil, overAt;
+  let obstacles, trees, clouds, zAcc, nextGap;
   let best = +(localStorage.getItem(BEST_KEY) || 0);
 
   function reset() {
-    player = { x: 130, y: GROUND_Y, vy: 0, w: 34, h: 42, onGround: true };
-    segments = [{ x: -200, w: 1800, hole: false }];
-    obstacles = [];
-    clouds = [];
+    laneTarget = 1; laneF = 1; jumpH = 0; vy = 0; jumpHeld = false;
+    speed = 1.2; dist = 0; score = 0; reviveLeft = 1; invUntil = 0;
+    obstacles = []; trees = []; clouds = []; zAcc = 0; nextGap = 220;
     for (let i = 0; i < 5; i++) {
-      clouds.push({ x: Math.random() * W, y: 30 + Math.random() * 140, s: 0.5 + Math.random() * 0.8 });
+      clouds.push({ x: Math.random() * W, y: 20 + Math.random() * 90, s: 0.5 + Math.random() * 0.8 });
     }
-    speed = 5.5; dist = 0; score = 0; camera = 0;
-    reviveLeft = 1; invUntil = 0; jumpHeld = false;
+    for (let i = 0; i < 8; i++) spawnTree(Math.random() * SPAWN_Z);
   }
 
-  function addObstacle(minX, maxX) {
-    if (maxX <= minX) return;
-    const ow = 24 + Math.random() * 20;
-    const oh = 28 + Math.random() * 34;
-    const x = minX + Math.random() * (maxX - minX);
-    obstacles.push({ x, y: GROUND_Y - oh, w: ow, h: oh, kind: Math.random() < 0.5 ? 0 : 1 });
+  function spawnTree(z) {
+    trees.push({
+      z,
+      wx: (Math.random() < 0.5 ? -1 : 1) * (230 + Math.random() * 170),
+      h: 34 + Math.random() * 40,
+    });
   }
 
-  function ensureWorld() {
-    let last = segments[segments.length - 1];
-    while (last.x + last.w < camera + W + 500) {
-      const start = last.x + last.w;
-      if (!last.hole && dist > 800 && Math.random() < 0.26) {
-        const w = 90 + Math.random() * Math.min(70, speed * 6);
-        segments.push({ x: start, w, hole: true });
-      } else {
-        const w = 280 + Math.random() * 320;
-        const seg = { x: start, w, hole: false };
-        segments.push(seg);
-        if (dist > 200 && Math.random() < 0.85) {
-          if (w > 560) {
-            addObstacle(seg.x + 60, seg.x + 180);
-            addObstacle(seg.x + w - 150, seg.x + w - 70);
-          } else {
-            addObstacle(seg.x + 60, seg.x + w - 100);
-          }
-        }
-      }
-      last = segments[segments.length - 1];
+  // kind: 0=木箱(よける) / 1=ハードル(飛ぶ) / 2=全レーンバー(飛ぶ)
+  function spawnPattern() {
+    const r = Math.random();
+    if (dist > 1500 && r < 0.18) {
+      obstacles.push({ z: SPAWN_Z, lane: -1, kind: 2 });
+    } else if (dist > 2500 && r < 0.42) {
+      const open = Math.floor(Math.random() * 3);
+      for (let l = 0; l < 3; l++) if (l !== open) obstacles.push({ z: SPAWN_Z, lane: l, kind: 0 });
+    } else if (r < 0.7) {
+      obstacles.push({ z: SPAWN_Z, lane: Math.floor(Math.random() * 3), kind: 0 });
+    } else {
+      obstacles.push({ z: SPAWN_Z, lane: Math.floor(Math.random() * 3), kind: 1 });
     }
-    while (segments.length && segments[0].x + segments[0].w < camera - 300) segments.shift();
-    obstacles = obstacles.filter(o => o.x + o.w > camera - 300);
   }
 
-  function groundUnder(wx) {
-    for (const s of segments) {
-      if (wx >= s.x && wx < s.x + s.w) return !s.hole;
-    }
-    return true;
+  function changeLane(dir) {
+    if (state !== 'play') return;
+    laneTarget = Math.max(0, Math.min(2, laneTarget + dir));
   }
 
   function jump() {
-    if (state === 'play' && player.onGround) {
-      player.vy = -15.5;
-      player.onGround = false;
+    if (state === 'play' && jumpH === 0) {
+      vy = 10.5;
+      jumpH = 0.01;
     }
   }
 
   // dt は 60fps を 1.0 とするフレーム単位（120Hz端末でも速度が変わらないようにする）
   function update(dt) {
     if (state !== 'play') return;
-    speed = Math.min(13, speed + 0.0011 * dt);
-    camera += speed * dt;
-    dist += speed * dt;
-    score = Math.floor(dist / 10);
-    ensureWorld();
+    speed = Math.min(3.2, speed + 0.0004 * dt);
+    const dz = speed * 3 * dt;
+    dist += dz;
+    score = Math.floor(dist / 20);
 
-    const g = (jumpHeld && player.vy < 0) ? 0.55 : 0.95;
-    player.vy += g * dt;
-    player.y += player.vy * dt;
+    zAcc += dz;
+    if (zAcc >= nextGap) {
+      zAcc = 0;
+      nextGap = (130 + Math.random() * 100) * (0.8 + speed * 0.25);
+      spawnPattern();
+    }
+    if (Math.random() < 0.02 * dt) spawnTree(SPAWN_Z);
 
-    const wx = camera + player.x;
-    if (player.y >= GROUND_Y && groundUnder(wx)) {
-      player.y = GROUND_Y;
-      player.vy = 0;
-      player.onGround = true;
-    } else {
-      player.onGround = false;
+    for (const o of obstacles) o.z -= dz;
+    for (const t of trees) t.z -= dz;
+    obstacles = obstacles.filter(o => o.z > -40);
+    trees = trees.filter(t => t.z > -40);
+
+    laneF += (laneTarget - laneF) * Math.min(1, 0.22 * dt);
+
+    if (jumpH > 0 || vy > 0) {
+      jumpH += vy * dt;
+      const g = (jumpHeld && vy > 0) ? 0.34 : 0.46;
+      vy -= g * dt;
+      if (jumpH <= 0) { jumpH = 0; vy = 0; }
     }
 
-    if (player.y - player.h > H + 40) { die(); return; }
-
     if (performance.now() > invUntil) {
-      const px = wx - player.w / 2 + 4, py = player.y - player.h + 4;
-      const pw = player.w - 8, ph = player.h - 6;
       for (const o of obstacles) {
-        if (px < o.x + o.w - 3 && px + pw > o.x + 3 && py < o.y + o.h && py + ph > o.y + 2) {
-          die();
-          return;
+        if (o.z < 10 && o.z > -8) {
+          if (o.kind === 2) {
+            if (jumpH < 45) { die(); return; }
+          } else if (Math.abs(laneF - o.lane) < 0.55) {
+            if (o.kind === 0 || jumpH < 45) { die(); return; }
+          }
         }
       }
     }
@@ -235,11 +242,8 @@
 
   function revive() {
     reviveLeft--;
-    for (const s of segments) if (s.x < camera + W + 200) s.hole = false;
-    obstacles = obstacles.filter(o => o.x > camera + W + 150);
-    player.y = GROUND_Y;
-    player.vy = 0;
-    player.onGround = true;
+    obstacles = obstacles.filter(o => o.z > 250);
+    jumpH = 0; vy = 0;
     invUntil = performance.now() + 1800;
     showPanel(null);
     state = 'play';
@@ -271,75 +275,161 @@
     ctx.fill();
   }
 
-  function drawPlayer() {
-    if (performance.now() < invUntil && Math.floor(performance.now() / 120) % 2) return;
-    const x = player.x - player.w / 2, y = player.y - player.h;
-    ctx.fillStyle = '#e0534a';
-    if (player.onGround && state === 'play') {
-      const p = Math.floor(performance.now() / 85) % 2;
-      ctx.fillRect(x + 5 + (p ? 2 : 0), player.y - 6, 8, 6);
-      ctx.fillRect(x + player.w - 13 - (p ? 2 : 0), player.y - 6, 8, 6);
-    } else {
-      ctx.fillRect(x + 5, player.y - 8, 8, 8);
-      ctx.fillRect(x + player.w - 13, player.y - 8, 8, 8);
-    }
-    ctx.fillStyle = '#ff6b5e';
-    roundRect(x, y, player.w, player.h - 6, 10);
+  function drawTree(t) {
+    const p = proj(t.z, t.wx);
+    const trunkW = 8 * XSCALE * p.s, trunkH = t.h * 0.5 * XSCALE * p.s;
+    const crown = t.h * 0.75 * XSCALE * p.s;
+    ctx.fillStyle = '#8d6748';
+    ctx.fillRect(p.x - trunkW / 2, p.y - trunkH, trunkW, trunkH);
+    ctx.fillStyle = '#3f9e4d';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - trunkH - crown * 0.5, crown * 0.62, 0, 7);
     ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(x + player.w - 11, y + 14, 7, 0, 7); ctx.fill();
-    ctx.fillStyle = '#233';
-    ctx.beginPath(); ctx.arc(x + player.w - 9, y + 14, 3.5, 0, 7); ctx.fill();
+  }
+
+  function drawObstacle(o) {
+    const wx = o.kind === 2 ? 0 : (o.lane - 1) * LANE_W;
+    const p = proj(o.z, wx);
+    if (o.kind === 0) {
+      // 木箱（背が高い・よける）
+      const w = 78 * XSCALE * p.s, h = 112 * XSCALE * p.s;
+      const x = p.x - w / 2, y = p.y - h;
+      ctx.fillStyle = '#b0733c';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#7d4f26';
+      ctx.lineWidth = Math.max(1, 3 * p.s);
+      ctx.strokeRect(x, y, w, h);
+      ctx.beginPath();
+      ctx.moveTo(x, y); ctx.lineTo(x + w, y + h);
+      ctx.moveTo(x + w, y); ctx.lineTo(x, y + h);
+      ctx.stroke();
+    } else {
+      // ハードル／全レーンバー（低い・飛び越える）
+      const w = (o.kind === 2 ? 304 : 84) * XSCALE * p.s;
+      const barH = 16 * XSCALE * p.s, legH = 30 * XSCALE * p.s;
+      const x = p.x - w / 2, y = p.y - legH - barH;
+      ctx.fillStyle = '#5a6270';
+      ctx.fillRect(x + 2, p.y - legH, Math.max(2, 5 * p.s), legH);
+      ctx.fillRect(x + w - 2 - Math.max(2, 5 * p.s), p.y - legH, Math.max(2, 5 * p.s), legH);
+      ctx.fillStyle = o.kind === 2 ? '#e5484d' : '#f4c542';
+      ctx.fillRect(x, y, w, barH);
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      const stripes = o.kind === 2 ? 6 : 2;
+      for (let i = 0; i < stripes; i++) {
+        ctx.fillRect(x + w * (i * 2 + 1) / (stripes * 2 + 1), y, w / (stripes * 2 + 1), barH);
+      }
+    }
+  }
+
+  function drawPlayer() {
+    const p = proj(0, (laneF - 1) * LANE_W);
+    // 影（ジャンプ中も地面に残る＝高さの手がかり）
+    const sh = Math.max(0.4, 1 - jumpH / 260);
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y - 5, 34 * sh, 11 * sh, 0, 0, 7);
+    ctx.fill();
+
+    if (performance.now() < invUntil && Math.floor(performance.now() / 120) % 2) return;
+    const px = p.x, py = p.y - jumpH;
+    // 足
+    ctx.fillStyle = '#e0534a';
+    if (jumpH === 0 && state === 'play') {
+      const ph = Math.floor(performance.now() / 85) % 2;
+      ctx.fillRect(px - 22, py - 12 + (ph ? -4 : 0), 14, 12 + (ph ? 4 : 0));
+      ctx.fillRect(px + 8, py - 12 + (ph ? 0 : -4), 14, 12 + (ph ? 0 : 4));
+    } else {
+      ctx.fillRect(px - 22, py - 16, 14, 12);
+      ctx.fillRect(px + 8, py - 16, 14, 12);
+    }
+    // 体（後ろ姿）
+    ctx.fillStyle = '#ff6b5e';
+    roundRect(px - 30, py - 70, 60, 58, 14);
+    ctx.fill();
+    // リュック
+    ctx.fillStyle = '#ffd166';
+    roundRect(px - 16, py - 58, 32, 30, 8);
+    ctx.fill();
+    // 耳
+    ctx.fillStyle = '#ff6b5e';
+    ctx.beginPath(); ctx.arc(px - 18, py - 72, 7, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(px + 18, py - 72, 7, 0, 7); ctx.fill();
   }
 
   function draw() {
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#8ec9ff');
-    sky.addColorStop(1, '#e3f3ff');
+    // 空
+    const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+    sky.addColorStop(0, '#6db5ff');
+    sky.addColorStop(1, '#c9e8ff');
     ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, W, HORIZON);
 
     ctx.fillStyle = 'rgba(255,255,255,.85)';
     for (const c of clouds) {
-      c.x -= (state === 'play' ? speed * 0.25 * c.s : 0.2 * c.s);
-      if (c.x < -80) { c.x = W + 60; c.y = 30 + Math.random() * 140; }
+      c.x -= 0.15 * c.s;
+      if (c.x < -80) { c.x = W + 60; c.y = 20 + Math.random() * 90; }
       drawCloud(c.x, c.y, c.s);
     }
 
-    for (const s of segments) {
-      if (s.hole) continue;
-      const sx = s.x - camera;
-      if (sx > W || sx + s.w < 0) continue;
-      ctx.fillStyle = '#8d6748';
-      ctx.fillRect(sx, GROUND_Y, s.w, H - GROUND_Y);
-      ctx.fillStyle = '#6dbf5b';
-      ctx.fillRect(sx, GROUND_Y, s.w, 10);
+    // 草原（zの縞で速度感を出す）
+    ctx.fillStyle = '#67b854';
+    ctx.fillRect(0, HORIZON, W, H - HORIZON);
+    ctx.fillStyle = '#5fae4d';
+    const period = 120;
+    for (let z = period - (dist % period) - period; z < 1400; z += period) {
+      const y1 = proj(Math.max(z, 0), 0).y;
+      const y2 = proj(Math.max(z + period * 0.5, 0), 0).y;
+      if (y1 - y2 > 0.5) ctx.fillRect(0, y2, W, y1 - y2);
     }
 
-    for (const o of obstacles) {
-      const ox = o.x - camera;
-      if (ox > W || ox + o.w < 0) continue;
-      if (o.kind === 0) {
-        ctx.fillStyle = '#b0733c';
-        ctx.fillRect(ox, o.y, o.w, o.h);
-        ctx.strokeStyle = '#7d4f26';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(ox + 1, o.y + 1, o.w - 2, o.h - 2);
+    // 道路（台形）
+    const roadHalfAt = y => (y - HORIZON) / PROJ * 150 * XSCALE;
+    ctx.fillStyle = '#6b6f7a';
+    ctx.beginPath();
+    ctx.moveTo(W / 2, HORIZON);
+    ctx.lineTo(W / 2 - roadHalfAt(H), H);
+    ctx.lineTo(W / 2 + roadHalfAt(H), H);
+    ctx.closePath();
+    ctx.fill();
+
+    // 路肩の白線
+    ctx.strokeStyle = 'rgba(255,255,255,.7)';
+    ctx.lineWidth = 3;
+    for (const wx of [-146, 146]) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + wx * XSCALE * 0.02, HORIZON + PROJ * 0.02);
+      ctx.lineTo(W / 2 + wx * XSCALE * (H - HORIZON) / PROJ, H);
+      ctx.stroke();
+    }
+
+    // レーン区切りの破線（流れて速度感を出す）
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    const dashP = 60;
+    for (const wx of [-50, 50]) {
+      for (let z = dashP - (dist % dashP) - dashP; z < SPAWN_Z; z += dashP) {
+        const z0 = Math.max(z, 0.5), z1 = Math.max(z + 24, 1);
+        if (z1 <= z0) continue;
+        const pNear = proj(z0, wx), pFar = proj(z1, wx);
+        const wNear = Math.max(1.5, 5 * pNear.s), wFar = Math.max(1, 5 * pFar.s);
         ctx.beginPath();
-        ctx.moveTo(ox + 2, o.y + 2);
-        ctx.lineTo(ox + o.w - 2, o.y + o.h - 2);
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = '#3f9e4d';
-        roundRect(ox, o.y, o.w, o.h, 6);
+        ctx.moveTo(pFar.x - wFar, pFar.y);
+        ctx.lineTo(pFar.x + wFar, pFar.y);
+        ctx.lineTo(pNear.x + wNear, pNear.y);
+        ctx.lineTo(pNear.x - wNear, pNear.y);
+        ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = '#8fd18a';
-        ctx.fillRect(ox + o.w / 2 - 2, o.y + 6, 4, o.h - 12);
       }
     }
 
+    // 遠→近の順に描画
+    trees.sort((a, b) => b.z - a.z);
+    for (const t of trees) drawTree(t);
+    obstacles.sort((a, b) => b.z - a.z);
+    for (const o of obstacles) if (o.z >= 0) drawObstacle(o);
     drawPlayer();
+    for (const o of obstacles) if (o.z < 0) drawObstacle(o);
 
+    // HUD
     if (state !== 'title') {
       ctx.fillStyle = '#234';
       ctx.font = 'bold 26px sans-serif';
@@ -366,7 +456,7 @@
     x.fillStyle = '#fff';
     x.textAlign = 'center';
     x.font = 'bold 40px sans-serif';
-    x.fillText('🐦 ワンタップ・ジャンプ', 400, 84);
+    x.fillText('🏃 ワンタップ・ジャンプ', 400, 84);
     x.font = 'bold 130px sans-serif';
     x.fillText(String(score), 400, 240);
     x.font = 'bold 24px sans-serif';
@@ -397,25 +487,47 @@
     }
   }
 
-  // ---- 入力 ----
+  // ---- 入力（スワイプ=レーン移動 / タップ=ジャンプ） ----
+  let gesture = null;
   canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    jumpHeld = true;
-    if (state === 'title') start();
-    else if (state === 'play') jump();
+    if (state === 'title') { start(); return; }
+    gesture = { x: e.clientX, y: e.clientY, t: performance.now(), used: false };
   });
-  window.addEventListener('pointerup', () => { jumpHeld = false; });
+  canvas.addEventListener('pointermove', e => {
+    if (!gesture || gesture.used) return;
+    const dx = e.clientX - gesture.x, dy = e.clientY - gesture.y;
+    if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      gesture.used = true;
+      changeLane(dx > 0 ? 1 : -1);
+    }
+  });
+  window.addEventListener('pointerup', e => {
+    if (!gesture) return;
+    const dx = e.clientX - gesture.x, dy = e.clientY - gesture.y;
+    const dur = performance.now() - gesture.t;
+    if (!gesture.used && dur < 350 && Math.hypot(dx, dy) < 24) jump();
+    gesture = null;
+  });
   window.addEventListener('keydown', e => {
-    if (e.code !== 'Space' && e.code !== 'ArrowUp') return;
-    e.preventDefault();
-    if (e.repeat) return;
-    jumpHeld = true;
-    if (state === 'title') start();
-    else if (state === 'play') jump();
-    else if (state === 'over' && performance.now() - overAt > 500) start();
+    const c = e.code;
+    if (c === 'Space' || c === 'ArrowUp' || c === 'KeyW') {
+      e.preventDefault();
+      if (e.repeat) return;
+      jumpHeld = true;
+      if (state === 'title') start();
+      else if (state === 'play') jump();
+      else if (state === 'over' && performance.now() - overAt > 500) start();
+    } else if (c === 'ArrowLeft' || c === 'KeyA') {
+      e.preventDefault();
+      changeLane(-1);
+    } else if (c === 'ArrowRight' || c === 'KeyD') {
+      e.preventDefault();
+      changeLane(1);
+    }
   });
   window.addEventListener('keyup', e => {
-    if (e.code === 'Space' || e.code === 'ArrowUp') jumpHeld = false;
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') jumpHeld = false;
   });
 
   $('btnStart').onclick = start;
