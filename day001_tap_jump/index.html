@@ -62,7 +62,7 @@
   <div id="overlay">
     <div id="panelTitle" class="panel">
       <h1>🏃 ワンタップ・ジャンプ</h1>
-      <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>木箱はよけて、バーは飛び越えろ。</p>
+      <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>木箱はよけて、バーは飛び越えろ。</p>
       <button id="btnStart">スタート</button>
       <div class="best">ベストスコア: <span id="bestTitle">0</span></div>
     </div>
@@ -122,15 +122,15 @@
   }
 
   let state = 'title'; // title | play | dead | over
-  let laneTarget, laneF, jumpH, vy, jumpHeld;
+  let laneTarget, laneF, jumpH, vy, jumpHeld, jumpCount;
   let speed, dist, score, reviveLeft, invUntil, overAt;
-  let obstacles, trees, clouds, zAcc, nextGap;
+  let obstacles, trees, clouds, puffs, zAcc, nextGap;
   let best = +(localStorage.getItem(BEST_KEY) || 0);
 
   function reset() {
-    laneTarget = 1; laneF = 1; jumpH = 0; vy = 0; jumpHeld = false;
+    laneTarget = 1; laneF = 1; jumpH = 0; vy = 0; jumpHeld = false; jumpCount = 0;
     speed = 1.2; dist = 0; score = 0; reviveLeft = 1; invUntil = 0;
-    obstacles = []; trees = []; clouds = []; zAcc = 0; nextGap = 220;
+    obstacles = []; trees = []; clouds = []; puffs = []; zAcc = 0; nextGap = 220;
     for (let i = 0; i < 5; i++) {
       clouds.push({ x: Math.random() * W, y: 20 + Math.random() * 90, s: 0.5 + Math.random() * 0.8 });
     }
@@ -166,9 +166,18 @@
   }
 
   function jump() {
-    if (state === 'play' && jumpH === 0) {
-      vy = 10.5;
+    if (state !== 'play') return;
+    if (jumpH === 0) {
+      // 1段目
+      vy = 9.5;
       jumpH = 0.01;
+      jumpCount = 1;
+    } else if (jumpCount < 2) {
+      // 2段目（空中でもう一度）
+      vy = 9.0;
+      jumpCount = 2;
+      const p = proj(0, (laneF - 1) * LANE_W);
+      puffs.push({ x: p.x, y: p.y - jumpH, r: 10, a: 0.8 });
     }
   }
 
@@ -183,7 +192,7 @@
     zAcc += dz;
     if (zAcc >= nextGap) {
       zAcc = 0;
-      nextGap = (130 + Math.random() * 100) * (0.8 + speed * 0.25);
+      nextGap = (150 + Math.random() * 110) * (0.8 + speed * 0.25);
       spawnPattern();
     }
     if (Math.random() < 0.02 * dt) spawnTree(SPAWN_Z);
@@ -197,9 +206,9 @@
 
     if (jumpH > 0 || vy > 0) {
       jumpH += vy * dt;
-      const g = (jumpHeld && vy > 0) ? 0.34 : 0.46;
+      const g = (jumpHeld && vy > 0) ? 0.38 : 0.52;
       vy -= g * dt;
-      if (jumpH <= 0) { jumpH = 0; vy = 0; }
+      if (jumpH <= 0) { jumpH = 0; vy = 0; jumpCount = 0; }
     }
 
     if (performance.now() > invUntil) {
@@ -243,7 +252,7 @@
   function revive() {
     reviveLeft--;
     obstacles = obstacles.filter(o => o.z > 250);
-    jumpH = 0; vy = 0;
+    jumpH = 0; vy = 0; jumpCount = 0;
     invUntil = performance.now() + 1800;
     showPanel(null);
     state = 'play';
@@ -428,6 +437,18 @@
     for (const o of obstacles) if (o.z >= 0) drawObstacle(o);
     drawPlayer();
     for (const o of obstacles) if (o.z < 0) drawObstacle(o);
+
+    // 2段ジャンプの煙エフェクト
+    for (const pf of puffs) {
+      ctx.strokeStyle = 'rgba(255,255,255,' + Math.max(pf.a, 0) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(pf.x, pf.y, pf.r, pf.r * 0.35, 0, 0, 7);
+      ctx.stroke();
+      pf.r += 2.2;
+      pf.a -= 0.06;
+    }
+    puffs = puffs.filter(pf => pf.a > 0);
 
     // HUD
     if (state !== 'title') {
