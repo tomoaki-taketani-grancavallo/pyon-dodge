@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="タップジャンプ">
-<title>ワンタップ・ジャンプ | Day 1 - 100日アプリチャレンジ</title>
+<meta name="apple-mobile-web-app-title" content="ピョン避け">
+<title>ピョン避け | Day 1 - 100日アプリチャレンジ</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -74,7 +74,7 @@
   <canvas id="game"></canvas>
   <div id="overlay">
     <div id="panelTitle" class="panel">
-      <h1 id="appTitle">🏃 ワンタップ・ジャンプ</h1>
+      <h1 id="appTitle">🐰 ピョン避け</h1>
       <p id="titleDesc">奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）</p>
       <button id="btnStart">スタート</button>
       <button id="btnInstall" class="ghost hidden">📲 ホーム画面に追加</button>
@@ -85,6 +85,7 @@
       <h2 id="reviveTitle">💥 クラッシュ！</h2>
       <p><span id="reviveScoreLabel">スコア</span>: <b id="scoreRevive">0</b></p>
       <button id="btnRevive">🎬 復活する（あと1回）</button>
+      <button id="btnShareRevive" class="ghost">📤 シェアする</button>
       <button id="btnGiveup" class="ghost">あきらめる</button>
       <p class="note" id="adNote">※製品版では動画リワード広告の視聴で復活する想定（現在はモック）</p>
     </div>
@@ -134,7 +135,7 @@
   // --- 多言語対応（日本語・英語・簡体中国語。ブラウザ言語で自動切替） ---
   const LANGS = {
     ja: {
-      appTitle: '🏃 ワンタップ・ジャンプ',
+      appTitle: '🐰 ピョン避け',
       desc: '奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）',
       start: 'スタート', install: '📲 ホーム画面に追加',
       iosHint: 'iPhoneの方: Safariの共有ボタン →「ホーム画面に追加」でアプリのように遊べます',
@@ -144,10 +145,10 @@
       retry: 'もう一度あそぶ', share: '📤 シェアする', save: '💾 結果画像を保存',
       footer: 'Day 1 / 100 — 100日アプリチャレンジ（2026-07-05）',
       cardTag: '#100日アプリチャレンジ Day 1/100',
-      shareMsg: s => 'スコア ' + s + '！ #100日アプリチャレンジ Day1',
+      shareMsg: s => '【ピョン避け】スコア ' + s + '！ #100日アプリチャレンジ Day1',
     },
     en: {
-      appTitle: '🏃 One-Tap Jump',
+      appTitle: '🐰 Pyon Dodge!',
       desc: 'An auto-running 3-lane runner!<br>Swipe ← → (arrow keys on PC) to change lanes,<br>tap / Space to jump.<br>Tap again mid-air for a <b>double jump</b>.<br>Jump the bars, dodge the crates<br>(a double jump clears crates too!)',
       start: 'Start', install: '📲 Add to Home Screen',
       iosHint: 'iPhone: tap Safari\'s Share button → "Add to Home Screen" to play like an app',
@@ -157,10 +158,10 @@
       retry: 'Play Again', share: '📤 Share', save: '💾 Save Result Image',
       footer: 'Day 1 / 100 — 100-Day App Challenge (2026-07-05)',
       cardTag: '#100DaysOfAppDev Day 1/100',
-      shareMsg: s => 'I scored ' + s + '! #100DaysOfAppDev Day 1',
+      shareMsg: s => 'Pyon Dodge! I scored ' + s + '! #100DaysOfAppDev Day 1',
     },
     zh: {
-      appTitle: '🏃 一键跳跃',
+      appTitle: '🐰 蹦蹦避',
       desc: '自动奔跑的3车道跑酷！<br>左右滑动（电脑用方向键）切换车道，<br>点击 / 空格键跳跃。<br>空中再点一次可<b>二段跳</b>。<br>栏杆要跳过，木箱要躲开<br>（二段跳也能跃过木箱！）',
       start: '开始', install: '📲 添加到主屏幕',
       iosHint: 'iPhone用户：点击Safari分享按钮 →「添加到主屏幕」即可像App一样游玩',
@@ -170,7 +171,7 @@
       retry: '再玩一次', share: '📤 分享', save: '💾 保存成绩图片',
       footer: 'Day 1 / 100 — 100天App挑战（2026-07-05）',
       cardTag: '#100天App挑战 Day 1/100',
-      shareMsg: s => '我得了 ' + s + ' 分！#100天App挑战 Day1',
+      shareMsg: s => '【蹦蹦避】我得了 ' + s + ' 分！#100天App挑战 Day1',
     },
   };
   const lang = (() => {
@@ -192,6 +193,7 @@
     $('reviveTitle').textContent = T.crash;
     $('reviveScoreLabel').textContent = T.score;
     $('btnRevive').textContent = T.revive;
+    $('btnShareRevive').textContent = T.share;
     $('btnGiveup').textContent = T.giveup;
     $('adNote').textContent = T.adNote;
     $('overTitle').textContent = T.gameover;
@@ -586,14 +588,14 @@
     const b = await makeCard();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b);
-    a.download = 'tapjump_score_' + score + '.png';
+    a.download = 'pyondodge_score_' + score + '.png';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
 
   async function shareImage() {
     const b = await makeCard();
-    const f = new File([b], 'tapjump_score.png', { type: 'image/png' });
+    const f = new File([b], 'pyondodge_score.png', { type: 'image/png' });
     const data = { files: [f], title: T.appTitle, text: T.shareMsg(score) };
     if (navigator.canShare && navigator.canShare(data)) {
       try { await navigator.share(data); } catch (e) { /* キャンセル時は何もしない */ }
@@ -655,6 +657,7 @@
   $('btnGiveup').onclick = finish;
   $('btnSave').onclick = saveImage;
   $('btnShare').onclick = shareImage;
+  $('btnShareRevive').onclick = shareImage;
 
   // ---- PWA（ホーム画面に追加・オフライン対応） ----
   if ('serviceWorker' in navigator) {
