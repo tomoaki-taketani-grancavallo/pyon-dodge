@@ -13,9 +13,13 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     min-height: 100%; padding: 12px; color: #fff;
   }
-  #wrap { position: relative; width: min(100%, 900px); }
+  #wrap {
+    position: relative;
+    width: min(100%, 420px, calc((100vh - 80px) * 0.5625));
+    width: min(100%, 420px, calc((100dvh - 80px) * 0.5625));
+  }
   canvas {
-    display: block; width: 100%; aspect-ratio: 800 / 450;
+    display: block; width: 100%; aspect-ratio: 450 / 800;
     border-radius: 14px; touch-action: none; user-select: none;
     -webkit-user-select: none; box-shadow: 0 12px 40px rgba(0,0,0,.4);
   }
@@ -33,8 +37,8 @@
     box-shadow: 0 10px 30px rgba(0,0,0,.35);
   }
   .panel.hidden { display: none; }
-  .panel h1 { font-size: 28px; margin-bottom: 8px; }
-  .panel h2 { font-size: 24px; margin-bottom: 8px; }
+  .panel h1 { font-size: 24px; margin-bottom: 8px; }
+  .panel h2 { font-size: 22px; margin-bottom: 8px; }
   .panel p { font-size: 14px; line-height: 1.7; margin-bottom: 14px; }
   .panel button {
     display: block; width: 100%; margin: 8px 0; padding: 12px 18px;
@@ -91,7 +95,7 @@
   const BEST_KEY = 'day001_tapjump_best';
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const W = 800, H = 450;
+  const W = 450, H = 800; // スマホ縦持ち前提（9:16）
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -99,10 +103,10 @@
 
   // --- 疑似3D投影 ---
   // 世界座標: wx = 左右(レーン中心 -100/0/+100)、z = プレイヤーからの前方距離
-  const HORIZON = 150;            // 地平線のy
-  const PROJ = 260;               // 地平線からプレイヤー足元(y=410)までの距離
+  const HORIZON = 310;            // 地平線のy
+  const PROJ = 430;               // 地平線からプレイヤー足元(y=740)までの距離
   const DNEAR = 60;               // 透視の焦点距離
-  const XSCALE = 2.27;            // 世界x→画面xの倍率(手前)
+  const XSCALE = 1.4;             // 世界x→画面xの倍率(手前)
   const LANE_W = 100;             // レーン幅(世界座標)
   const SPAWN_Z = 420;            // 障害物の出現距離
 
@@ -132,7 +136,7 @@
     speed = 1.2; dist = 0; score = 0; reviveLeft = 1; invUntil = 0;
     obstacles = []; trees = []; clouds = []; puffs = []; zAcc = 0; nextGap = 220;
     for (let i = 0; i < 5; i++) {
-      clouds.push({ x: Math.random() * W, y: 20 + Math.random() * 90, s: 0.5 + Math.random() * 0.8 });
+      clouds.push({ x: Math.random() * W, y: 30 + Math.random() * 200, s: 0.5 + Math.random() * 0.8 });
     }
     for (let i = 0; i < 8; i++) spawnTree(Math.random() * SPAWN_Z);
   }
@@ -140,7 +144,7 @@
   function spawnTree(z) {
     trees.push({
       z,
-      wx: (Math.random() < 0.5 ? -1 : 1) * (230 + Math.random() * 170),
+      wx: (Math.random() < 0.5 ? -1 : 1) * (190 + Math.random() * 150),
       h: 34 + Math.random() * 40,
     });
   }
@@ -379,7 +383,7 @@
     ctx.fillStyle = 'rgba(255,255,255,.85)';
     for (const c of clouds) {
       c.x -= 0.15 * c.s;
-      if (c.x < -80) { c.x = W + 60; c.y = 20 + Math.random() * 90; }
+      if (c.x < -80) { c.x = W + 60; c.y = 30 + Math.random() * 200; }
       drawCloud(c.x, c.y, c.s);
     }
 
@@ -456,11 +460,11 @@
     // HUD
     if (state !== 'title') {
       ctx.fillStyle = '#234';
-      ctx.font = 'bold 26px sans-serif';
+      ctx.font = 'bold 22px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('SCORE ' + score, 16, 38);
+      ctx.fillText('SCORE ' + score, 14, 34);
       ctx.textAlign = 'right';
-      ctx.fillText('BEST ' + Math.max(best, score), W - 16, 38);
+      ctx.fillText('BEST ' + Math.max(best, score), W - 14, 34);
     }
   }
 
