@@ -2,7 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b2a4a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="タップジャンプ">
 <title>ワンタップ・ジャンプ | Day 1 - 100日アプリチャレンジ</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -58,6 +66,7 @@
     font-weight: 800; font-size: 12px; border-radius: 8px; padding: 2px 8px;
   }
   #newBest.hidden { display: none; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -68,6 +77,8 @@
       <h1>🏃 ワンタップ・ジャンプ</h1>
       <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）</p>
       <button id="btnStart">スタート</button>
+      <button id="btnInstall" class="ghost hidden">📲 ホーム画面に追加</button>
+      <p class="note hidden" id="iosHint">iPhoneの方: Safariの共有ボタン →「ホーム画面に追加」でアプリのように遊べます</p>
       <div class="best">ベストスコア: <span id="bestTitle">0</span></div>
     </div>
     <div id="panelRevive" class="panel hidden">
@@ -573,6 +584,31 @@
   $('btnGiveup').onclick = finish;
   $('btnSave').onclick = saveImage;
   $('btnShare').onclick = shareImage;
+
+  // ---- PWA（ホーム画面に追加・オフライン対応） ----
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    installPrompt = e;
+    $('btnInstall').classList.remove('hidden');
+  });
+  $('btnInstall').onclick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    installPrompt = null;
+    $('btnInstall').classList.add('hidden');
+  };
+  window.addEventListener('appinstalled', () => { $('btnInstall').classList.add('hidden'); });
+  // iOS Safariにはbeforeinstallpromptが無いので手動追加のヒントを出す
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  const inStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if (isIos && !inStandalone) $('iosHint').classList.remove('hidden');
 
   // ---- 起動 ----
   let lastT = performance.now();
