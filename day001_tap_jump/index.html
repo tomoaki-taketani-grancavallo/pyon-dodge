@@ -301,8 +301,10 @@
     const p = proj(o.z, wx);
     if (o.kind === 0) {
       // 木箱（背が高い・よける）
-      const w = 78 * XSCALE * p.s, h = 112 * XSCALE * p.s;
+      const w = 78 * XSCALE * p.s, h = 96 * XSCALE * p.s;
       const x = p.x - w / 2, y = p.y - h;
+      // 手前に迫った箱は半透明にして、奥のレーン・次の障害物の視界を確保する
+      ctx.globalAlpha = o.z < 140 ? 0.35 + 0.65 * Math.max(0, Math.min(1, (o.z - 30) / 110)) : 1;
       ctx.fillStyle = '#b0733c';
       ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = '#7d4f26';
@@ -312,6 +314,7 @@
       ctx.moveTo(x, y); ctx.lineTo(x + w, y + h);
       ctx.moveTo(x + w, y); ctx.lineTo(x, y + h);
       ctx.stroke();
+      ctx.globalAlpha = 1;
     } else {
       // ハードル／全レーンバー（低い・飛び越える）
       const w = (o.kind === 2 ? 304 : 84) * XSCALE * p.s;
