@@ -74,31 +74,31 @@
   <canvas id="game"></canvas>
   <div id="overlay">
     <div id="panelTitle" class="panel">
-      <h1>🏃 ワンタップ・ジャンプ</h1>
-      <p>奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）</p>
+      <h1 id="appTitle">🏃 ワンタップ・ジャンプ</h1>
+      <p id="titleDesc">奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）</p>
       <button id="btnStart">スタート</button>
       <button id="btnInstall" class="ghost hidden">📲 ホーム画面に追加</button>
       <p class="note hidden" id="iosHint">iPhoneの方: Safariの共有ボタン →「ホーム画面に追加」でアプリのように遊べます</p>
-      <div class="best">ベストスコア: <span id="bestTitle">0</span></div>
+      <div class="best"><span id="bestLabelTitle">ベストスコア</span>: <span id="bestTitle">0</span></div>
     </div>
     <div id="panelRevive" class="panel hidden">
-      <h2>💥 クラッシュ！</h2>
-      <p>スコア: <b id="scoreRevive">0</b></p>
+      <h2 id="reviveTitle">💥 クラッシュ！</h2>
+      <p><span id="reviveScoreLabel">スコア</span>: <b id="scoreRevive">0</b></p>
       <button id="btnRevive">🎬 復活する（あと1回）</button>
       <button id="btnGiveup" class="ghost">あきらめる</button>
-      <p class="note">※製品版では動画リワード広告の視聴で復活する想定（現在はモック）</p>
+      <p class="note" id="adNote">※製品版では動画リワード広告の視聴で復活する想定（現在はモック）</p>
     </div>
     <div id="panelOver" class="panel hidden">
-      <h2>ゲームオーバー</h2>
+      <h2 id="overTitle">ゲームオーバー</h2>
       <div class="scorebig" id="scoreOver">0</div>
-      <div class="best">ベスト: <span id="bestOver">0</span> <span id="newBest" class="hidden">NEW!</span></div>
+      <div class="best"><span id="bestLabelOver">ベスト</span>: <span id="bestOver">0</span> <span id="newBest" class="hidden">NEW!</span></div>
       <button id="btnRetry">もう一度あそぶ</button>
       <button id="btnShare" class="ghost">📤 シェアする</button>
       <button id="btnSave" class="ghost">💾 結果画像を保存</button>
     </div>
   </div>
 </div>
-<footer>Day 1 / 100 — 100日アプリチャレンジ（2026-07-05）</footer>
+<footer id="footerText">Day 1 / 100 — 100日アプリチャレンジ（2026-07-05）</footer>
 
 <script>
 (() => {
@@ -130,6 +130,77 @@
 
   const $ = id => document.getElementById(id);
   const panels = { title: $('panelTitle'), revive: $('panelRevive'), over: $('panelOver') };
+
+  // --- 多言語対応（日本語・英語・簡体中国語。ブラウザ言語で自動切替） ---
+  const LANGS = {
+    ja: {
+      appTitle: '🏃 ワンタップ・ジャンプ',
+      desc: '奥へ向かって自動で走り続ける3レーンランナー。<br>← → スワイプ（PCは矢印キー）でレーン移動、<br>タップ / スペースでジャンプ！<br>空中でもう一度タップすると<b>2段ジャンプ</b>。<br>バーはジャンプ、木箱はよける<br>（木箱も2段ジャンプなら飛び越せる！）',
+      start: 'スタート', install: '📲 ホーム画面に追加',
+      iosHint: 'iPhoneの方: Safariの共有ボタン →「ホーム画面に追加」でアプリのように遊べます',
+      crash: '💥 クラッシュ！', score: 'スコア', revive: '🎬 復活する（あと1回）', giveup: 'あきらめる',
+      adNote: '※製品版では動画リワード広告の視聴で復活する想定（現在はモック）',
+      gameover: 'ゲームオーバー', bestScore: 'ベストスコア', best: 'ベスト',
+      retry: 'もう一度あそぶ', share: '📤 シェアする', save: '💾 結果画像を保存',
+      footer: 'Day 1 / 100 — 100日アプリチャレンジ（2026-07-05）',
+      cardTag: '#100日アプリチャレンジ Day 1/100',
+      shareMsg: s => 'スコア ' + s + '！ #100日アプリチャレンジ Day1',
+    },
+    en: {
+      appTitle: '🏃 One-Tap Jump',
+      desc: 'An auto-running 3-lane runner!<br>Swipe ← → (arrow keys on PC) to change lanes,<br>tap / Space to jump.<br>Tap again mid-air for a <b>double jump</b>.<br>Jump the bars, dodge the crates<br>(a double jump clears crates too!)',
+      start: 'Start', install: '📲 Add to Home Screen',
+      iosHint: 'iPhone: tap Safari\'s Share button → "Add to Home Screen" to play like an app',
+      crash: '💥 Crash!', score: 'Score', revive: '🎬 Revive (1 left)', giveup: 'Give up',
+      adNote: '* In the release version, revive requires watching a rewarded ad (mock for now)',
+      gameover: 'Game Over', bestScore: 'Best Score', best: 'Best',
+      retry: 'Play Again', share: '📤 Share', save: '💾 Save Result Image',
+      footer: 'Day 1 / 100 — 100-Day App Challenge (2026-07-05)',
+      cardTag: '#100DaysOfAppDev Day 1/100',
+      shareMsg: s => 'I scored ' + s + '! #100DaysOfAppDev Day 1',
+    },
+    zh: {
+      appTitle: '🏃 一键跳跃',
+      desc: '自动奔跑的3车道跑酷！<br>左右滑动（电脑用方向键）切换车道，<br>点击 / 空格键跳跃。<br>空中再点一次可<b>二段跳</b>。<br>栏杆要跳过，木箱要躲开<br>（二段跳也能跃过木箱！）',
+      start: '开始', install: '📲 添加到主屏幕',
+      iosHint: 'iPhone用户：点击Safari分享按钮 →「添加到主屏幕」即可像App一样游玩',
+      crash: '💥 撞上了！', score: '分数', revive: '🎬 复活（剩1次）', giveup: '放弃',
+      adNote: '※正式版中复活需观看激励视频广告（当前为模拟）',
+      gameover: '游戏结束', bestScore: '最高分', best: '最高分',
+      retry: '再玩一次', share: '📤 分享', save: '💾 保存成绩图片',
+      footer: 'Day 1 / 100 — 100天App挑战（2026-07-05）',
+      cardTag: '#100天App挑战 Day 1/100',
+      shareMsg: s => '我得了 ' + s + ' 分！#100天App挑战 Day1',
+    },
+  };
+  const lang = (() => {
+    const l = String(navigator.language || 'ja').toLowerCase();
+    if (l.startsWith('ja')) return 'ja';
+    if (l.startsWith('zh')) return 'zh';
+    return 'en';
+  })();
+  const T = LANGS[lang];
+
+  function applyLang() {
+    if (document.documentElement) document.documentElement.lang = lang;
+    $('appTitle').textContent = T.appTitle;
+    $('titleDesc').innerHTML = T.desc;
+    $('btnStart').textContent = T.start;
+    $('btnInstall').textContent = T.install;
+    $('iosHint').textContent = T.iosHint;
+    $('bestLabelTitle').textContent = T.bestScore;
+    $('reviveTitle').textContent = T.crash;
+    $('reviveScoreLabel').textContent = T.score;
+    $('btnRevive').textContent = T.revive;
+    $('btnGiveup').textContent = T.giveup;
+    $('adNote').textContent = T.adNote;
+    $('overTitle').textContent = T.gameover;
+    $('bestLabelOver').textContent = T.best;
+    $('btnRetry').textContent = T.retry;
+    $('btnShare').textContent = T.share;
+    $('btnSave').textContent = T.save;
+    $('footerText').textContent = T.footer;
+  }
 
   function showPanel(name) {
     const ov = $('overlay');
@@ -500,14 +571,14 @@
     x.fillStyle = '#fff';
     x.textAlign = 'center';
     x.font = 'bold 40px sans-serif';
-    x.fillText('🏃 ワンタップ・ジャンプ', 400, 84);
+    x.fillText(T.appTitle, 400, 84);
     x.font = 'bold 130px sans-serif';
     x.fillText(String(score), 400, 240);
     x.font = 'bold 24px sans-serif';
     x.fillText('SCORE', 400, 282);
     x.font = '20px sans-serif';
-    x.fillText('BEST ' + best + '　' + new Date().toLocaleDateString('ja-JP'), 400, 340);
-    x.fillText('#100日アプリチャレンジ Day 1/100', 400, 378);
+    x.fillText('BEST ' + best + '　' + new Date().toLocaleDateString(), 400, 340);
+    x.fillText(T.cardTag, 400, 378);
     return new Promise(r => c.toBlob(r, 'image/png'));
   }
 
@@ -523,7 +594,7 @@
   async function shareImage() {
     const b = await makeCard();
     const f = new File([b], 'tapjump_score.png', { type: 'image/png' });
-    const data = { files: [f], title: 'ワンタップ・ジャンプ', text: 'スコア ' + score + '！ #100日アプリチャレンジ Day1' };
+    const data = { files: [f], title: T.appTitle, text: T.shareMsg(score) };
     if (navigator.canShare && navigator.canShare(data)) {
       try { await navigator.share(data); } catch (e) { /* キャンセル時は何もしない */ }
     } else {
@@ -620,6 +691,7 @@
     draw();
     requestAnimationFrame(loop);
   }
+  applyLang();
   reset();
   $('bestTitle').textContent = best;
   showPanel('title');

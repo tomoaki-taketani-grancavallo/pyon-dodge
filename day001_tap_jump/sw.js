@@ -1,6 +1,6 @@
 // ワンタップ・ジャンプ Service Worker（オフライン対応）
 // キャッシュを更新したいときは CACHE のバージョン番号を上げること
-const CACHE = 'tapjump-v1';
+const CACHE = 'tapjump-v2';
 const ASSETS = [
   './',
   './index.html',
