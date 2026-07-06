@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>つみタワー｜Day 2</title>
+<meta name="description" content="左右に動くブロックをタップで落として積み上げる。ズレたらその分だけ細くなる。どこまで高く積めるか？ / Stack Tower / 叠叠高">
+<meta name="theme-color" content="#0e1630">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#070b18; }
+  body {
+    font-family: system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; user-select:none; -webkit-user-select:none;
+  }
+  #frame {
+    position:relative;
+    width: min(100vw, calc(100vh * 450 / 800), 450px);
+    aspect-ratio: 450 / 800;
+    overflow:hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    background:#0e1630;
+  }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  /* HUD */
+  #hud {
+    position:absolute; top:0; left:0; right:0; padding:14px 16px 0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none;
+  }
+  #score { font-size:56px; font-weight:800; line-height:1;
+    text-shadow:0 3px 10px rgba(0,0,0,.5); letter-spacing:1px; }
+  #combo { font-size:15px; font-weight:700; color:#ffd54a; margin-top:4px;
+    height:18px; opacity:0; transition:opacity .2s; }
+  #muteBtn {
+    pointer-events:auto; width:40px; height:40px; border:none; border-radius:12px;
+    background:rgba(255,255,255,.12); color:#fff; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* Overlays */
+  .overlay {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:28px;
+    background:linear-gradient(180deg, rgba(8,12,26,.72), rgba(8,12,26,.9));
+    backdrop-filter: blur(2px);
+  }
+  .hidden { display:none !important; }
+  h1 { font-size:38px; font-weight:800; letter-spacing:1px; margin-bottom:6px;
+    background:linear-gradient(90deg,#ffd54a,#ff8f5a,#ff5f9e,#8f7bff);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .tag { font-size:12px; color:#8fa0c8; letter-spacing:3px; margin-bottom:20px; }
+  .lead { font-size:15px; color:#c4cfe8; line-height:1.75; margin-bottom:26px; max-width:300px; }
+  .best { font-size:14px; color:#9fb0d8; margin-bottom:24px; }
+  .btn {
+    border:none; cursor:pointer; font-weight:800; font-size:17px; color:#0e1630;
+    padding:15px 34px; border-radius:30px; margin:6px;
+    background:linear-gradient(90deg,#ffd54a,#ff9d5a);
+    box-shadow:0 8px 22px rgba(255,157,90,.35);
+  }
+  .btn.sub { background:rgba(255,255,255,.14); color:#fff; box-shadow:none;
+    font-size:15px; padding:13px 26px; }
+  .btn:active { transform:translateY(1px); }
+  .row { display:flex; flex-wrap:wrap; justify-content:center; }
+  #finalScore { font-size:70px; font-weight:800; line-height:1; margin-bottom:4px; }
+  #finalLabel { font-size:13px; color:#8fa0c8; letter-spacing:2px; margin-bottom:8px; }
+  #record { font-size:15px; font-weight:700; color:#ffd54a; height:20px; margin-bottom:18px; }
+  .hint { font-size:12px; color:#7f8fb5; margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div>
+      <div id="score">0</div>
+      <div id="combo"></div>
+    </div>
+    <button id="muteBtn" aria-label="mute">🔊</button>
+  </div>
+
+  <!-- Start -->
+  <div id="startScreen" class="overlay">
+    <h1 id="ttl">つみタワー</h1>
+    <div class="tag">DAY 2 / 100</div>
+    <p class="lead" id="lead"></p>
+    <div class="best" id="startBest"></div>
+    <button class="btn" id="startBtn"></button>
+    <div class="hint" id="ctrlHint"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="overScreen" class="overlay hidden">
+    <div id="finalLabel"></div>
+    <div id="finalScore">0</div>
+    <div id="record"></div>
+    <div class="row">
+      <button class="btn" id="retryBtn"></button>
+    </div>
+    <div class="row">
+      <button class="btn sub" id="reviveBtn"></button>
+      <button class="btn sub" id="shareBtn"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ===== Day2 積み重ねタワー（仮タイトル：つみタワー） =====
+   1ファイル完結・ビルド不要。Day1の資産（PWA/多言語/Web Audio/シェアカード）を踏襲。 */
+
+/* ---------- 多言語 ---------- */
+const LANG = (() => {
+  const l = (navigator.language || "ja").toLowerCase();
+  if (l.startsWith("ja")) return "ja";
+  if (l.startsWith("zh")) return "zh";
+  return "en";
+})();
+const T = {
+  ja: { title:"つみタワー", lead:"左右に動くブロックを タップで落として重ねよう。ズレた分だけ細くなる。ピッタリ揃えば PERFECT！",
+        start:"タップでスタート", ctrl:"タップ / クリック / スペース で落とす",
+        best:"ベスト", score:"だん", label:"つみあげた だんすう", newRec:"🎉 ベスト更新！",
+        retry:"もう一度", revive:"復活（1回だけ）", share:"結果をシェア",
+        perfect:"PERFECT!", combo:"れんぞく" },
+  en: { title:"Stack Tower", lead:"Tap to drop the moving block onto the tower. Overhang gets sliced off. Line it up for a PERFECT!",
+        start:"Tap to Start", ctrl:"Tap / Click / Space to drop",
+        best:"Best", score:"", label:"BLOCKS STACKED", newRec:"🎉 New Best!",
+        retry:"Retry", revive:"Revive (once)", share:"Share result",
+        perfect:"PERFECT!", combo:"combo" },
+  zh: { title:"叠叠高", lead:"点击让左右移动的方块落下并叠好。错位的部分会被切掉。对齐就是 PERFECT！",
+        start:"点击开始", ctrl:"点击 / 单击 / 空格 落下",
+        best:"最高", score:"层", label:"叠了几层", newRec:"🎉 刷新纪录！",
+        retry:"再来一次", revive:"复活（仅一次）", share:"分享结果",
+        perfect:"PERFECT!", combo:"连击" },
+}[LANG];
+
+document.documentElement.lang = LANG;
+document.getElementById("ttl").textContent = T.title;
+document.getElementById("lead").textContent = T.lead;
+document.getElementById("startBtn").textContent = T.start;
+document.getElementById("ctrlHint").textContent = T.ctrl;
+document.getElementById("retryBtn").textContent = T.retry;
+document.getElementById("reviveBtn").textContent = T.revive;
+document.getElementById("shareBtn").textContent = T.share;
+
+/* ---------- キャンバス ---------- */
+const W = 450, H = 800;
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let dpr = 1;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* ---------- ゲーム定数 ---------- */
+const BH = 34;                 // ブロックの高さ
+const FIELD_L = 40, FIELD_R = W - 40;
+const W0 = 200;                // 初期ブロック幅
+const Y0 = 100000;             // 土台のワールドy（大きい値・上へ行くほど減る）
+const CAM_ANCHOR = 260;        // タワー上端の画面上の目標y
+const PERFECT_EPS = 6;         // PERFECT判定の許容ズレ(px)
+const GRAV = 2200;             // 落下重力(px/s^2)
+const DROP_G = 3400;           // 落とすブロックの重力
+
+/* ---------- 状態 ---------- */
+let blocks, moving, debris, particles, camY, camYTarget, score, best,
+    combo, state, reviveUsed, hueSeed, shakeT, perfectFlash;
+
+best = (() => { try { return parseInt(localStorage.getItem("stack_best")||"0",10)||0; } catch(e){ return 0; } })();
+
+function blockHue(i){ return (hueSeed + i*24) % 360; }
+
+function reset() {
+  blocks = [];
+  debris = [];
+  particles = [];
+  score = 0;
+  combo = 0;
+  reviveUsed = false;
+  shakeT = 0;
+  perfectFlash = 0;
+  try { hueSeed = Math.floor((Date.now()/1000) % 360); } catch(e){ hueSeed = 200; }
+  // 土台ブロック
+  blocks.push({ x: W/2, y: Y0, w: W0, hue: blockHue(0) });
+  camY = Y0 - (H - 40) + CAM_ANCHOR; // 初期は土台を下の方に
+  camYTarget = camY;
+  spawnMoving();
+  updateHUD();
+  state = "moving";
+}
+
+function spawnMoving() {
+  const top = blocks[blocks.length - 1];
+  const targetY = top.y - BH;
+  const w = top.w;
+  const dir = (blocks.length % 2 === 0) ? 1 : -1;
+  const startX = dir === 1 ? FIELD_L + w/2 : FIELD_R - w/2;
+  moving = {
+    x: startX, y: targetY - 190, w, targetY,
+    hue: blockHue(blocks.length), dir,
+    speed: 190 + Math.min(blocks.length * 9, 230), // 高くなるほど速く
+    vy: 0
+  };
+}
+
+function updateHUD() {
+  document.getElementById("score").textContent = score;
+  const cEl = document.getElementById("combo");
+  if (combo >= 2) { cEl.textContent = "🔥 " + combo + " " + T.combo; cEl.style.opacity = 1; }
+  else cEl.style.opacity = 0;
+}
+
+/* ---------- カメラ ---------- */
+function updateCam(dt) {
+  const top = blocks[blocks.length - 1];
+  const base = blocks[0];
+  // 上端を画面CAM_ANCHORに置きたい。ただし土台が下端(H-30)より下に行かないよう制限。
+  camYTarget = Math.min(top.y - CAM_ANCHOR, base.y - (H - 30));
+  camY += (camYTarget - camY) * Math.min(1, dt * 6);
+}
+function sy(worldY){ return worldY - camY; }
+
+/* ---------- 落とす ---------- */
+function drop() {
+  if (state !== "moving") return;
+  state = "falling";
+  moving.vy = 0;
+}
+
+function land() {
+  const below = blocks[blocks.length - 1];
+  const mL = moving.x - moving.w/2, mR = moving.x + moving.w/2;
+  const bL = below.x - below.w/2, bR = below.x + below.w/2;
+  const oL = Math.max(mL, bL), oR = Math.min(mR, bR);
+  const overlap = oR - oL;
+
+  if (overlap <= 0) {
+    // 完全にミス → ブロック全体が落下してゲームオーバー
+    addDebris(mL, mR, moving.y, moving.hue, moving.x < below.x ? -1 : 1, true);
+    gameOver();
+    return;
+  }
+
+  const perfect = Math.abs(moving.x - below.x) < PERFECT_EPS;
+  let newX, newW;
+
+  if (perfect) {
+    newX = below.x;
+    newW = Math.min(W0, below.w + 4);   // PERFECTは幅が少し戻る
+    combo++;
+    perfectFlash = 1;
+    spawnPerfectParticles(newX, moving.y);
+    beep("perfect");
+  } else {
+    combo = 0;
+    newX = (oL + oR) / 2;
+    newW = overlap;
+    // はみ出した破片を物理で落とす
+    if (mL < oL) addDebris(mL, oL, moving.y, moving.hue, -1, false);
+    if (mR > oR) addDebris(oR, mR, moving.y, moving.hue, 1, false);
+    beep("place");
+    shakeT = 0.12;
+  }
+
+  blocks.push({ x: newX, y: moving.targetY, w: newW, hue: moving.hue });
+  score++;
+  if (score > best) { best = score; try { localStorage.setItem("stack_best", best); } catch(e){} }
+  updateHUD();
+  spawnMoving();
+  state = "moving";
+}
+
+function addDebris(x1, x2, topY, hue, sign, whole) {
+  const w = x2 - x1;
+  if (w <= 0.5) return;
+  debris.push({
+    x: (x1 + x2)/2, y: topY + BH/2, w, h: BH, hue,
+    vx: sign * (60 + Math.random()*90) + (whole ? sign*40 : 0),
+    vy: whole ? -60 : -30 - Math.random()*40,
+    angle: 0, va: sign * (2 + Math.random()*3), alpha: 1
+  });
+}
+function spawnPerfectParticles(x, topY) {
+  for (let i=0;i<14;i++){
+    const a = Math.random()*Math.PI*2, sp = 80 + Math.random()*160;
+    particles.push({ x, y: topY, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 40,
+      life: 1, hue: 48 + Math.random()*20 });
+  }
+}
+
+/* ---------- ゲームオーバー ---------- */
+function gameOver() {
+  state = "over";
+  beep("over");
+  shakeT = 0.35;
+  const isRec = (score === best && score > 0);
+  document.getElementById("finalLabel").textContent = T.label;
+  document.getElementById("finalScore").textContent = score;
+  document.getElementById("record").textContent = isRec ? T.newRec : (T.best + " " + best);
+  document.getElementById("reviveBtn").classList.toggle("hidden", reviveUsed);
+  setTimeout(() => document.getElementById("overScreen").classList.remove("hidden"), 550);
+}
+
+function revive() {
+  if (reviveUsed) return;
+  reviveUsed = true;
+  document.getElementById("overScreen").classList.add("hidden");
+  // 直近の土台の上に、少し広めのブロックから再開
+  const top = blocks[blocks.length - 1];
+  if (top.w < 90) top.w = 90; // 復活時は最低幅を確保して救済
+  spawnMoving();
+  state = "moving";
+}
+
+/* ---------- ループ ---------- */
+let last = 0;
+function frame(ts) {
+  if (!last) last = ts;
+  let dt = (ts - last) / 1000; last = ts;
+  if (dt > 0.05) dt = 0.05;      // タブ復帰時の飛び防止
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+function update(dt) {
+  if (state === "moving") {
+    moving.x += moving.dir * moving.speed * dt;
+    const half = moving.w/2;
+    if (moving.x - half < FIELD_L) { moving.x = FIELD_L + half; moving.dir = 1; }
+    if (moving.x + half > FIELD_R) { moving.x = FIELD_R - half; moving.dir = -1; }
+  } else if (state === "falling") {
+    moving.vy += DROP_G * dt;
+    moving.y += moving.vy * dt;
+    if (moving.y >= moving.targetY) { moving.y = moving.targetY; land(); }
+  }
+  // 破片
+  for (const d of debris) {
+    d.vy += GRAV * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.angle += d.va * dt;
+    if (sy(d.y) > H + 120) d.dead = true;
+  }
+  debris = debris.filter(d => !d.dead);
+  // PERFECT粒子
+  for (const p of particles) {
+    p.vy += 400*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt*1.6;
+    if (p.life <= 0) p.dead = true;
+  }
+  particles = particles.filter(p => !p.dead);
+  if (perfectFlash > 0) perfectFlash = Math.max(0, perfectFlash - dt*2.2);
+  if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
+  if (state !== "over") updateCam(dt);
+}
+
+/* ---------- 描画 ---------- */
+function roundRect(x,y,w,h,r){
+  if (w <= 0 || h <= 0) { ctx.beginPath(); return; } // 細くなり過ぎた時のクラッシュ防止
+  r = Math.max(0, Math.min(r, w/2, h/2));
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function drawBlock(cx, worldY, w, hue, alpha, angle) {
+  const x = cx - w/2, y = sy(worldY);
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  if (angle) { ctx.translate(cx, y + BH/2); ctx.rotate(angle); ctx.translate(-cx, -(y+BH/2)); }
+  // 本体
+  const g = ctx.createLinearGradient(x, y, x, y+BH);
+  g.addColorStop(0, `hsl(${hue} 72% 66%)`);
+  g.addColorStop(1, `hsl(${hue} 68% 52%)`);
+  ctx.fillStyle = g;
+  roundRect(x, y, w, BH, 6); ctx.fill();
+  // 上ハイライト（細いブロックでは省略）
+  if (w > 12) {
+    ctx.fillStyle = `hsla(${hue} 80% 82% / .55)`;
+    roundRect(x+3, y+3, w-6, 6, 3); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function render() {
+  // 背景（上ほど暗い夜空グラデ）
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0, "#0a1030"); bg.addColorStop(1, "#141d3f");
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  ctx.save();
+  if (shakeT > 0) {
+    const s = shakeT * 22;
+    ctx.translate((Math.random()-.5)*s, (Math.random()-.5)*s);
+  }
+
+  // 遠景の星
+  ctx.fillStyle = "rgba(255,255,255,.10)";
+  for (let i=0;i<24;i++){
+    const sx = (i*97 % W), syy = ((i*53) % H);
+    ctx.fillRect(sx, syy, 2, 2);
+  }
+
+  // ガイドライン（現在の上端の中心）
+  if (state === "moving" || state === "falling") {
+    const top = blocks[blocks.length - 1];
+    ctx.strokeStyle = "rgba(255,255,255,.10)";
+    ctx.setLineDash([5,7]);
+    ctx.beginPath(); ctx.moveTo(top.x, 0); ctx.lineTo(top.x, H); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 積んだブロック（下から）
+  for (let i=0;i<blocks.length;i++){
+    const b = blocks[i];
+    if (sy(b.y) > H + 40) continue;
+    drawBlock(b.x, b.y, b.w, b.hue, 1, 0);
+  }
+  // 破片
+  for (const d of debris) drawBlock(d.x, d.y, d.w, d.hue, Math.min(1, 1), d.angle);
+  // 動くブロック / 落下中
+  if (state === "moving" || state === "falling") {
+    drawBlock(moving.x, moving.y, moving.w, moving.hue, 1, 0);
+  }
+  // PERFECT粒子
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = `hsl(${p.hue} 90% 60%)`;
+    ctx.fillRect(p.x-3, sy(p.y)-3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+
+  // PERFECTテキスト
+  if (perfectFlash > 0 && blocks.length) {
+    const top = blocks[blocks.length - 1];
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, perfectFlash*1.5);
+    ctx.fillStyle = "#ffd54a";
+    ctx.font = "800 26px system-ui,sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(T.perfect, top.x, sy(top.y) - 18 - (1-perfectFlash)*20);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* ---------- 入力 ---------- */
+function onPress(e) {
+  if (state === "moving") { e.preventDefault(); drop(); }
+}
+document.getElementById("frame").addEventListener("pointerdown", onPress);
+window.addEventListener("keydown", e => {
+  if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault();
+    if (state === "moving") drop(); }
+});
+
+/* ---------- Web Audio（Day1流用の簡易版） ---------- */
+let actx = null, muted = false, bgmTimer = null, bgmStep = 0;
+function ensureAudio(){ if(!actx){ try { actx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} } if(actx && actx.state==="suspended") actx.resume(); }
+function tone(freq, dur, type, vol){
+  if (!actx || muted) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type||"square"; o.frequency.value = freq;
+  const t = actx.currentTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol||0.15, t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+dur);
+}
+function beep(kind){
+  if (kind==="place") tone(220 + Math.min(combo,8)*30, 0.12, "square", 0.14);
+  else if (kind==="perfect"){ tone(660,0.08,"square",0.16); tone(990,0.14,"triangle",0.12); }
+  else if (kind==="over"){ tone(200,0.18,"sawtooth",0.16); setTimeout(()=>tone(120,0.4,"sawtooth",0.16),120); }
+}
+const BGM = [0,3,5,7,10,7,5,3]; // Am系ペンタ風
+function startBGM(){
+  if (bgmTimer || !actx) return;
+  bgmTimer = setInterval(() => {
+    if (muted || !actx) return;
+    const base = 220 * Math.pow(2, BGM[bgmStep % BGM.length]/12);
+    tone(base, 0.16, "triangle", 0.05);
+    if (bgmStep % 4 === 0) tone(base/2, 0.22, "sine", 0.06);
+    bgmStep++;
+  }, 260);
+}
+document.getElementById("muteBtn").addEventListener("click", (e) => {
+  e.stopPropagation(); muted = !muted;
+  document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+});
+
+/* ---------- シェアカード ---------- */
+async function share() {
+  const cw = 600, ch = 800;
+  const oc = document.createElement("canvas"); oc.width = cw; oc.height = ch;
+  const o = oc.getContext("2d");
+  const g = o.createLinearGradient(0,0,0,ch);
+  g.addColorStop(0,"#0a1030"); g.addColorStop(1,"#1c2752");
+  o.fillStyle = g; o.fillRect(0,0,cw,ch);
+  // ミニタワー
+  const n = Math.min(score, 12), bw = 150, bh = 30;
+  for (let i=0;i<n;i++){
+    const hue = (hueSeed + (score-n+i)*24)%360;
+    const w = bw - Math.abs((i%2)?6:0);
+    o.fillStyle = `hsl(${hue} 70% 58%)`;
+    const x = cw/2 - w/2 + Math.sin(i*0.9)*10;
+    const y = 470 - i*bh;
+    o.beginPath(); o.roundRect(x, y, w, bh-4, 6); o.fill();
+  }
+  o.textAlign = "center";
+  o.fillStyle = "#ffd54a"; o.font = "800 130px system-ui,sans-serif";
+  o.fillText(score, cw/2, 640);
+  o.fillStyle = "#fff"; o.font = "700 34px system-ui,sans-serif";
+  o.fillText(T.label, cw/2, 690);
+  o.fillStyle = "#9fb0d8"; o.font = "600 22px system-ui,sans-serif";
+  o.fillText(T.title + "  ・  Day 2 / 100", cw/2, 740);
+  o.fillText("apps.grancavallo.com", cw/2, 772);
+
+  oc.toBlob(async (blob) => {
+    const file = new File([blob], "stack-tower.png", { type: "image/png" });
+    const data = { files: [file], title: T.title, text: `${T.label}: ${score}` };
+    if (navigator.canShare && navigator.canShare(data)) {
+      try { await navigator.share(data); return; } catch(e){}
+    }
+    // フォールバック：ダウンロード
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "stack-tower.png"; a.click();
+  }, "image/png");
+}
+
+/* ---------- 開始・リトライ ---------- */
+function begin() {
+  ensureAudio(); startBGM();
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("overScreen").classList.add("hidden");
+  reset();
+}
+document.getElementById("startBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
+document.getElementById("retryBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
+document.getElementById("reviveBtn").addEventListener("click", (e)=>{ e.stopPropagation(); revive(); });
+document.getElementById("shareBtn").addEventListener("click", (e)=>{ e.stopPropagation(); share(); });
+
+// スタート画面のベスト表示
+document.getElementById("startBest").textContent = best>0 ? (T.best + " : " + best) : "";
+
+// 初期描画用のダミー状態
+reset(); state = "moving";
+document.getElementById("startScreen").classList.remove("hidden");
+requestAnimationFrame(frame);
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>

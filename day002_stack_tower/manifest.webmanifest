@@ -1,0 +1,17 @@
+{
+  "name": "つみタワー",
+  "short_name": "つみタワー",
+  "description": "左右に動くブロックをタップで落として積み上げる。ズレたら細くなる、どこまで高く積める？ / Stack Tower / 叠叠高",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1630",
+  "theme_color": "#0e1630",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
