@@ -70,6 +70,22 @@
   #finalLabel { font-size:13px; color:#8fa0c8; letter-spacing:2px; margin-bottom:8px; }
   #record { font-size:15px; font-weight:700; color:#ffd54a; height:20px; margin-bottom:18px; }
   .hint { font-size:12px; color:#7f8fb5; margin-top:22px; }
+
+  /* リワード広告モック */
+  #adScreen { background:rgba(4,6,14,.95); z-index:5; }
+  .adbox {
+    width:100%; max-width:320px; text-align:center;
+    background:linear-gradient(160deg,#1a2450,#111a38);
+    border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:26px 24px;
+  }
+  .adlabel { display:inline-block; font-size:11px; font-weight:800; letter-spacing:2px;
+    color:#0e1630; background:#ffd54a; padding:3px 10px; border-radius:6px; margin-bottom:16px; }
+  .adart { font-size:64px; margin:2px 0 14px; }
+  .adcopy { font-size:15px; color:#c4cfe8; margin-bottom:18px; line-height:1.6; }
+  .adbar { height:6px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+  .adfill { height:100%; width:0; background:linear-gradient(90deg,#ffd54a,#ff9d5a); }
+  .adstatus { font-size:13px; color:#9fb0d8; height:18px; margin-bottom:16px; }
+  .adhint { font-size:11px; color:#6b7ba3; margin-top:16px; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -107,6 +123,19 @@
       <button class="btn sub" id="shareBtn"></button>
     </div>
   </div>
+
+  <!-- リワード広告（モック：本番SDKに差し替え可能） -->
+  <div id="adScreen" class="overlay hidden">
+    <div class="adbox">
+      <div class="adlabel">AD</div>
+      <div class="adart">🎬</div>
+      <div id="adCopy" class="adcopy"></div>
+      <div class="adbar"><div id="adFill" class="adfill"></div></div>
+      <div id="adStatus" class="adstatus"></div>
+      <button class="btn" id="adClaimBtn"></button>
+      <div id="adHint" class="adhint"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -125,18 +154,24 @@ const T = {
   ja: { title:"つみタワー", lead:"左右に動くブロックを タップで落として重ねよう。ズレた分だけ細くなる。ピッタリ揃えば PERFECT！",
         start:"タップでスタート", ctrl:"タップ / クリック / スペース で落とす",
         best:"ベスト", score:"だん", label:"つみあげた だんすう", newRec:"🎉 ベスト更新！",
-        retry:"もう一度", revive:"復活（1回だけ）", share:"結果をシェア",
-        perfect:"PERFECT!", combo:"れんぞく" },
+        retry:"もう一度", revive:"▶ 動画を見て復活", share:"結果をシェア",
+        perfect:"PERFECT!", combo:"れんぞく",
+        adCopy:"スポンサー動画", adPlaying:"再生中…", adDone:"視聴完了！", adClaim:"✕ 閉じて復活する",
+        adHint:"※実装デモ。本番は動画リワード広告を表示します" },
   en: { title:"Stack Tower", lead:"Tap to drop the moving block onto the tower. Overhang gets sliced off. Line it up for a PERFECT!",
         start:"Tap to Start", ctrl:"Tap / Click / Space to drop",
         best:"Best", score:"", label:"BLOCKS STACKED", newRec:"🎉 New Best!",
-        retry:"Retry", revive:"Revive (once)", share:"Share result",
-        perfect:"PERFECT!", combo:"combo" },
+        retry:"Retry", revive:"▶ Watch ad to revive", share:"Share result",
+        perfect:"PERFECT!", combo:"combo",
+        adCopy:"Sponsored video", adPlaying:"Playing…", adDone:"Finished!", adClaim:"✕ Close & revive",
+        adHint:"Demo only. Production shows a rewarded video ad" },
   zh: { title:"叠叠高", lead:"点击让左右移动的方块落下并叠好。错位的部分会被切掉。对齐就是 PERFECT！",
         start:"点击开始", ctrl:"点击 / 单击 / 空格 落下",
         best:"最高", score:"层", label:"叠了几层", newRec:"🎉 刷新纪录！",
-        retry:"再来一次", revive:"复活（仅一次）", share:"分享结果",
-        perfect:"PERFECT!", combo:"连击" },
+        retry:"再来一次", revive:"▶ 看广告复活", share:"分享结果",
+        perfect:"PERFECT!", combo:"连击",
+        adCopy:"赞助视频", adPlaying:"播放中…", adDone:"观看完成！", adClaim:"✕ 关闭并复活",
+        adHint:"演示用。正式版将显示激励视频广告" },
 }[LANG];
 
 document.documentElement.lang = LANG;
@@ -163,7 +198,7 @@ window.addEventListener("resize", resize);
 
 /* ---------- ゲーム定数 ---------- */
 const BH = 34;                 // ブロックの高さ
-const FIELD_L = 40, FIELD_R = W - 40;
+const FIELD_L = 0, FIELD_R = W; // 可動域＝画面いっぱい（端から端までスライド）
 const W0 = 200;                // 初期ブロック幅
 const Y0 = 100000;             // 土台のワールドy（大きい値・上へ行くほど減る）
 const CAM_ANCHOR = 260;        // タワー上端の画面上の目標y
@@ -532,6 +567,50 @@ async function share() {
   }, "image/png");
 }
 
+/* ---------- リワード広告（モック） ----------
+   本番は showRewardedAd() の中身を実際の動画リワード広告SDK
+   （AdSense H5 Games Ads / Capacitor+AdMob 等）に差し替える。
+   「最後まで視聴 → onReward() を呼ぶ」の契約だけ守れば良い。 */
+function showRewardedAd(onReward) {
+  const scr = document.getElementById("adScreen");
+  const fill = document.getElementById("adFill");
+  const status = document.getElementById("adStatus");
+  const claim = document.getElementById("adClaimBtn");
+  document.getElementById("adCopy").textContent = T.adCopy;
+  document.getElementById("adHint").textContent = T.adHint;
+  claim.textContent = T.adClaim;
+  claim.style.visibility = "hidden";     // 視聴完了まで押せない
+  fill.style.width = "0%";
+  status.textContent = T.adPlaying + " 5";
+  scr.classList.remove("hidden");
+  ensureAudio();
+
+  const DUR = 5000;
+  const t0 = performance.now();
+  let finished = false;
+  function step(now) {
+    const p = Math.min(1, (now - t0) / DUR);
+    fill.style.width = (p * 100).toFixed(1) + "%";
+    if (p >= 1) {
+      finished = true;
+      status.textContent = T.adDone;
+      claim.style.visibility = "visible";
+      beep("perfect");
+    } else {
+      status.textContent = T.adPlaying + " " + Math.ceil((1 - p) * DUR / 1000);
+      requestAnimationFrame(step);
+    }
+  }
+  requestAnimationFrame(step);
+
+  claim.onclick = (e) => {
+    e.stopPropagation();
+    if (!finished) return;               // 途中閉じは報酬なし（リワード広告の挙動）
+    scr.classList.add("hidden");
+    onReward();
+  };
+}
+
 /* ---------- 開始・リトライ ---------- */
 function begin() {
   ensureAudio(); startBGM();
@@ -541,7 +620,7 @@ function begin() {
 }
 document.getElementById("startBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
 document.getElementById("retryBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
-document.getElementById("reviveBtn").addEventListener("click", (e)=>{ e.stopPropagation(); revive(); });
+document.getElementById("reviveBtn").addEventListener("click", (e)=>{ e.stopPropagation(); showRewardedAd(revive); });
 document.getElementById("shareBtn").addEventListener("click", (e)=>{ e.stopPropagation(); share(); });
 
 // スタート画面のベスト表示

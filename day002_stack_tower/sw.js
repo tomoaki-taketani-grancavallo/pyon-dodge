@@ -1,6 +1,6 @@
 // つみタワー（仮） Service Worker（オフライン対応）
 // キャッシュを更新したいときは CACHE のバージョン番号を上げること
-const CACHE = 'stacktower-v2';
+const CACHE = 'stacktower-v3';
 const ASSETS = [
   './',
   './index.html',
