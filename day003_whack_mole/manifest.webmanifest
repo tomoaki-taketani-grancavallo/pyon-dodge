@@ -1,0 +1,17 @@
+{
+  "name": "モグラッシュ",
+  "short_name": "モグラッシュ",
+  "description": "9つの穴から出るモグラを制限時間内に叩きまくる！爆弾はさわるな。連続ヒットでリベンジタイム発動。 / MoguRush / 打地鼠冲刺",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14351f",
+  "theme_color": "#14351f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

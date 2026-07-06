@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>モグラッシュ｜Day 3</title>
+<meta name="description" content="9つの穴から出るモグラを制限時間内に叩きまくる！爆弾はさわるな。連続ヒットでリベンジタイム発動。 / MoguRush / 打地鼠冲刺">
+<meta name="theme-color" content="#14351f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#07130b; }
+  body {
+    font-family: system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; user-select:none; -webkit-user-select:none;
+  }
+  #frame {
+    position:relative;
+    width: min(100vw, calc(100vh * 450 / 800), 450px);
+    aspect-ratio: 450 / 800;
+    overflow:hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    background:#14351f;
+  }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  /* HUD */
+  #hud {
+    position:absolute; top:0; left:0; right:0; padding:14px 16px 0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none;
+  }
+  #score { font-size:46px; font-weight:800; line-height:1;
+    text-shadow:0 3px 10px rgba(0,0,0,.5); letter-spacing:1px; }
+  #scoreLbl { font-size:11px; font-weight:700; color:#bfe3c6; letter-spacing:2px; margin-top:2px; }
+  #combo { font-size:15px; font-weight:800; color:#ffd54a; margin-top:6px;
+    height:18px; opacity:0; transition:opacity .2s; text-shadow:0 2px 6px rgba(0,0,0,.5); }
+  #muteBtn {
+    pointer-events:auto; width:40px; height:40px; border:none; border-radius:12px;
+    background:rgba(255,255,255,.12); color:#fff; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* Overlays */
+  .overlay {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:28px;
+    background:linear-gradient(180deg, rgba(6,24,12,.72), rgba(6,24,12,.92));
+    backdrop-filter: blur(2px);
+  }
+  .hidden { display:none !important; }
+  h1 { font-size:40px; font-weight:800; letter-spacing:1px; margin-bottom:6px;
+    background:linear-gradient(90deg,#ffd54a,#ffae4a,#8bd66a,#4ad2a0);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .tag { font-size:12px; color:#8fc79c; letter-spacing:3px; margin-bottom:20px; }
+  .lead { font-size:15px; color:#cfe8d4; line-height:1.75; margin-bottom:26px; max-width:300px; }
+  .best { font-size:14px; color:#a7d0b0; margin-bottom:24px; height:20px; }
+  .btn {
+    border:none; cursor:pointer; font-weight:800; font-size:17px; color:#0e2a17;
+    padding:15px 34px; border-radius:30px; margin:6px;
+    background:linear-gradient(90deg,#ffd54a,#8bd66a);
+    box-shadow:0 8px 22px rgba(139,214,106,.35);
+  }
+  .btn.sub { background:rgba(255,255,255,.14); color:#fff; box-shadow:none;
+    font-size:15px; padding:13px 26px; }
+  .btn:active { transform:translateY(1px); }
+  .row { display:flex; flex-wrap:wrap; justify-content:center; }
+  #finalScore { font-size:70px; font-weight:800; line-height:1; margin-bottom:4px; }
+  #finalLabel { font-size:13px; color:#8fc79c; letter-spacing:2px; margin-bottom:8px; }
+  #record { font-size:15px; font-weight:800; color:#ffd54a; height:20px; margin-bottom:18px; }
+  #maxCombo { font-size:13px; color:#a7d0b0; height:18px; margin-bottom:16px; }
+  .hint { font-size:12px; color:#7fa889; margin-top:22px; line-height:1.6; }
+
+  /* リワード広告モック */
+  #adScreen { background:rgba(3,10,6,.95); z-index:5; }
+  .adbox {
+    width:100%; max-width:320px; text-align:center;
+    background:linear-gradient(160deg,#1c3d28,#122a1b);
+    border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:26px 24px;
+  }
+  .adlabel { display:inline-block; font-size:11px; font-weight:800; letter-spacing:2px;
+    color:#0e2a17; background:#ffd54a; padding:3px 10px; border-radius:6px; margin-bottom:16px; }
+  .adart { font-size:64px; margin:2px 0 14px; }
+  .adcopy { font-size:15px; color:#cfe8d4; margin-bottom:18px; line-height:1.6; }
+  .adbar { height:6px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+  .adfill { height:100%; width:0; background:linear-gradient(90deg,#ffd54a,#8bd66a); }
+  .adstatus { font-size:13px; color:#a7d0b0; height:18px; margin-bottom:16px; }
+  .adhint { font-size:11px; color:#6f9079; margin-top:16px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div>
+      <div id="score">0</div>
+      <div id="scoreLbl"></div>
+      <div id="combo"></div>
+    </div>
+    <button id="muteBtn" aria-label="mute">🔊</button>
+  </div>
+
+  <!-- Start -->
+  <div id="startScreen" class="overlay">
+    <h1 id="ttl">モグラッシュ</h1>
+    <div class="tag">DAY 3 / 100</div>
+    <p class="lead" id="lead"></p>
+    <div class="best" id="startBest"></div>
+    <button class="btn" id="startBtn"></button>
+    <div class="hint" id="ctrlHint"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="overScreen" class="overlay hidden">
+    <div id="finalLabel"></div>
+    <div id="finalScore">0</div>
+    <div id="record"></div>
+    <div id="maxCombo"></div>
+    <div class="row">
+      <button class="btn" id="retryBtn"></button>
+    </div>
+    <div class="row">
+      <button class="btn sub" id="reviveBtn"></button>
+      <button class="btn sub" id="shareBtn"></button>
+    </div>
+  </div>
+
+  <!-- リワード広告（モック：本番SDKに差し替え可能） -->
+  <div id="adScreen" class="overlay hidden">
+    <div class="adbox">
+      <div class="adlabel">AD</div>
+      <div class="adart">🎬</div>
+      <div id="adCopy" class="adcopy"></div>
+      <div class="adbar"><div id="adFill" class="adfill"></div></div>
+      <div id="adStatus" class="adstatus"></div>
+      <button class="btn" id="adClaimBtn"></button>
+      <div id="adHint" class="adhint"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ===== Day3 もぐら叩きリベンジ（正式名称：モグラッシュ / MoguRush / 打地鼠冲刺） =====
+   1ファイル完結・ビルド不要。Day1/2の資産（PWA・多言語・Web Audio・シェアカード・
+   デルタタイム基準ループ）を踏襲。3×3の9穴、制限60秒、爆弾・コンボ・リベンジタイム。 */
+
+/* ---------- 多言語 ---------- */
+const LANG = (() => {
+  const l = (navigator.language || "ja").toLowerCase();
+  if (l.startsWith("ja")) return "ja";
+  if (l.startsWith("zh")) return "zh";
+  return "en";
+})();
+const T = {
+  ja: { title:"モグラッシュ",
+        lead:"9つの穴から出るモグラを 制限時間内にタップで叩こう！ 爆弾を叩くと −3秒。 連続ヒットで『リベンジタイム』発動！",
+        start:"タップでスタート", ctrl:"モグラをタップ／クリック　爆弾はさわるな！",
+        best:"ベスト", scoreLbl:"SCORE", label:"スコア", combo:"コンボ", maxCombo:"最大コンボ",
+        newRec:"🎉 ベスト更新！", retry:"もう一度", revive:"▶ 動画を見て +15秒", share:"結果をシェア",
+        fever:"リベンジタイム！", timeUp:"タイムアップ！",
+        adCopy:"スポンサー動画", adPlaying:"再生中…", adDone:"視聴完了！", adClaim:"✕ 閉じて続ける",
+        adHint:"※実装デモ。本番は動画リワード広告を表示します" },
+  en: { title:"MoguRush",
+        lead:"Whack the moles popping from 9 holes before time runs out! Hitting a bomb costs −3s. Chain hits to trigger REVENGE TIME!",
+        start:"Tap to Start", ctrl:"Tap / click the moles — don't touch bombs!",
+        best:"Best", scoreLbl:"SCORE", label:"SCORE", combo:"combo", maxCombo:"Max combo",
+        newRec:"🎉 New Best!", retry:"Retry", revive:"▶ Watch ad for +15s", share:"Share result",
+        fever:"REVENGE TIME!", timeUp:"TIME UP!",
+        adCopy:"Sponsored video", adPlaying:"Playing…", adDone:"Finished!", adClaim:"✕ Close & continue",
+        adHint:"Demo only. Production shows a rewarded video ad" },
+  zh: { title:"打地鼠冲刺",
+        lead:"在限定时间内点击敲打从9个洞里冒出的地鼠！ 打到炸弹会 −3秒。 连续命中触发『复仇时间』！",
+        start:"点击开始", ctrl:"点击 / 单击地鼠　别碰炸弹！",
+        best:"最高", scoreLbl:"分数", label:"分数", combo:"连击", maxCombo:"最大连击",
+        newRec:"🎉 刷新纪录！", retry:"再来一次", revive:"▶ 看广告 +15秒", share:"分享结果",
+        fever:"复仇时间！", timeUp:"时间到！",
+        adCopy:"赞助视频", adPlaying:"播放中…", adDone:"观看完成！", adClaim:"✕ 关闭并继续",
+        adHint:"演示用。正式版将显示激励视频广告" },
+}[LANG];
+
+document.documentElement.lang = LANG;
+document.getElementById("ttl").textContent = T.title;
+document.getElementById("lead").textContent = T.lead;
+document.getElementById("scoreLbl").textContent = T.scoreLbl;
+document.getElementById("startBtn").textContent = T.start;
+document.getElementById("ctrlHint").textContent = T.ctrl;
+document.getElementById("retryBtn").textContent = T.retry;
+document.getElementById("reviveBtn").textContent = T.revive;
+document.getElementById("shareBtn").textContent = T.share;
+
+/* ---------- キャンバス ---------- */
+const W = 450, H = 800;
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let dpr = 1;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* ---------- ゲーム定数 ---------- */
+const GAME_TIME = 60;          // 制限時間(秒)
+const REVIVE_BONUS = 15;       // 広告視聴での延長(秒)
+const RISE_DUR = 0.13;         // モグラが出入りする速さ(秒)
+const HIT_HOLD = 0.18;         // 叩かれてから引っ込むまで(秒)
+const FEVER_DUR = 6;           // リベンジタイムの長さ(秒)
+const FEVER_NEED = 1;          // リベンジゲージ満タン閾値
+const HOLE_RX = 54, HOLE_RY = 24;
+const MOLE_R = 36;
+const MOLE_UP_MAX = 46;        // 出切った時の上方向オフセット
+
+// グリッド配置（3×3）
+const GRID_TOP = 210, GRID_BOT = 762;
+const GRID_L = 34, GRID_R = 416;
+const holes = [];
+(function buildHoles(){
+  const cols = 3, rows = 3;
+  const cw = (GRID_R - GRID_L) / cols;
+  const rh = (GRID_BOT - GRID_TOP) / rows;
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++){
+    holes.push({ cx: GRID_L + cw*(c+0.5), cy: GRID_TOP + rh*(r+0.5), mole:null });
+  }
+})();
+
+// モグラの種類
+const MOLE = {
+  normal: { base:100, gaugeGain:0.05, up:[1.15,0.72] },
+  fast:   { base:200, gaugeGain:0.06, up:[0.78,0.52] },
+  golden: { base:500, gaugeGain:0.12, up:[0.95,0.65] },
+  bomb:   { base:0,   gaugeGain:0,    up:[1.30,0.95] },
+};
+
+/* ---------- 状態 ---------- */
+let state, score, best, timeLeft, combo, maxCombo, reviveUsed,
+    spawnTimer, feverGauge, fever, feverT, shakeT, redFlash, feverBanner,
+    pops, particles;
+
+best = (() => { try { return parseInt(localStorage.getItem("mogurush_best")||"0",10)||0; } catch(e){ return 0; } })();
+
+function reset() {
+  for (const h of holes) h.mole = null;
+  score = 0; combo = 0; maxCombo = 0; timeLeft = GAME_TIME;
+  reviveUsed = false; spawnTimer = 0.5;
+  feverGauge = 0; fever = false; feverT = 0; feverBanner = 0;
+  shakeT = 0; redFlash = 0;
+  pops = []; particles = [];
+  updateHUD();
+}
+
+function difficulty() {
+  const elapsed = GAME_TIME - timeLeft;
+  return Math.min(1, elapsed / GAME_TIME);   // 0→1
+}
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+function updateHUD() {
+  document.getElementById("score").textContent = score;
+  const cEl = document.getElementById("combo");
+  if (combo >= 2) { cEl.textContent = "🔥 " + combo + " " + T.combo; cEl.style.opacity = 1; }
+  else cEl.style.opacity = 0;
+}
+
+/* ---------- スポーン ---------- */
+function pickType() {
+  if (fever) {
+    // リベンジタイムは爆弾なし・金モグラ多め
+    const r = Math.random();
+    if (r < 0.18) return "golden";
+    if (r < 0.5) return "fast";
+    return "normal";
+  }
+  const diff = difficulty();
+  const r = Math.random();
+  const bombW = lerp(0.10, 0.20, diff);   // 後半ほど爆弾増
+  if (r < bombW) return "bomb";
+  if (r < bombW + 0.03) return "golden";
+  if (r < bombW + 0.03 + lerp(0.15,0.28,diff)) return "fast";
+  return "normal";
+}
+
+function spawn() {
+  const empties = holes.filter(h => !h.mole);
+  if (!empties.length) return;
+  const h = empties[Math.floor(Math.random()*empties.length)];
+  const type = pickType();
+  const diff = difficulty();
+  const upRange = MOLE[type].up;
+  const upTime = fever ? 0.9 : lerp(upRange[0], upRange[1], diff);
+  h.mole = { type, phase:"rising", t:0, rise:0, up:upTime, wob: Math.random()*Math.PI*2 };
+}
+
+function maxConcurrent() {
+  if (fever) return 9;
+  return Math.round(lerp(2, 4, difficulty()));
+}
+function spawnInterval() {
+  if (fever) return 0.18;
+  return lerp(0.85, 0.42, difficulty()) * (0.75 + Math.random()*0.5);
+}
+
+/* ---------- 叩く ---------- */
+function moleCenterY(h){ return h.cy - h.mole.rise * MOLE_UP_MAX; }
+
+function whackAt(px, py) {
+  if (state !== "playing") return;
+  // 最前面（下の行）から判定したいので逆順で当たり判定
+  for (let i = holes.length - 1; i >= 0; i--) {
+    const h = holes[i];
+    const m = h.mole;
+    if (!m || m.rise < 0.35) continue;
+    if (m.phase === "hit" || m.phase === "falling") continue;
+    const my = moleCenterY(h);
+    const dx = px - h.cx, dy = py - my;
+    if (dx*dx + dy*dy <= (MOLE_R + 8)*(MOLE_R + 8)) {
+      hitMole(h);
+      return;
+    }
+  }
+}
+
+function hitMole(h) {
+  const m = h.mole;
+  if (m.type === "bomb") {
+    // 爆弾：ペナルティ
+    combo = 0;
+    timeLeft = Math.max(0, timeLeft - 3);
+    shakeT = 0.4; redFlash = 1;
+    burst(h.cx, moleCenterY(h), "bomb");
+    beep("bomb");
+    m.phase = "hit"; m.t = 0; m.dizzy = true;
+    updateHUD();
+    if (timeLeft <= 0) endGame();
+    return;
+  }
+  combo++;
+  if (combo > maxCombo) maxCombo = combo;
+  const mult = 1 + Math.min(Math.floor(combo/5), 4);   // 1〜5倍
+  const gain = MOLE[m.type].base * mult * (fever ? 2 : 1);
+  score += gain;
+  if (score > best) { best = score; try { localStorage.setItem("mogurush_best", best); } catch(e){} }
+
+  // リベンジゲージ
+  if (!fever) {
+    feverGauge = Math.min(FEVER_NEED, feverGauge + MOLE[m.type].gaugeGain);
+    if (feverGauge >= FEVER_NEED) startFever();
+  }
+
+  pops.push({ x: h.cx, y: moleCenterY(h) - 20, txt: "+"+gain,
+    life: 1, gold: (m.type==="golden"||fever) });
+  burst(h.cx, moleCenterY(h), m.type);
+  beep(m.type === "golden" ? "golden" : "whack");
+  shakeT = Math.max(shakeT, 0.08);
+  m.phase = "hit"; m.t = 0; m.dizzy = true;
+  updateHUD();
+}
+
+function startFever() {
+  fever = true; feverT = FEVER_DUR; feverBanner = 1.4;
+  spawnTimer = 0; beep("fever");
+}
+
+/* ---------- エフェクト ---------- */
+function burst(x, y, type) {
+  const n = type === "bomb" ? 22 : (type === "golden" ? 18 : 12);
+  for (let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, sp = 90 + Math.random()*190;
+    let hue;
+    if (type === "bomb") hue = 6 + Math.random()*16;
+    else if (type === "golden") hue = 46 + Math.random()*14;
+    else hue = 110 + Math.random()*40;
+    particles.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 60,
+      life: 1, hue });
+  }
+}
+
+/* ---------- 終了 ---------- */
+function endGame() {
+  state = "over";
+  fever = false;
+  for (const h of holes) if (h.mole && h.mole.phase !== "hit") { h.mole.phase = "falling"; h.mole.t = 0; }
+  beep("over");
+  const isRec = (score === best && score > 0);
+  document.getElementById("finalLabel").textContent = T.label;
+  document.getElementById("finalScore").textContent = score;
+  document.getElementById("record").textContent = isRec ? T.newRec : (T.best + " " + best);
+  document.getElementById("maxCombo").textContent = T.maxCombo + " : " + maxCombo;
+  document.getElementById("reviveBtn").classList.toggle("hidden", reviveUsed);
+  setTimeout(() => document.getElementById("overScreen").classList.remove("hidden"), 650);
+}
+
+function revive() {
+  if (reviveUsed) return;
+  reviveUsed = true;
+  document.getElementById("overScreen").classList.add("hidden");
+  timeLeft = REVIVE_BONUS;
+  state = "playing";
+  spawnTimer = 0.3;
+}
+
+/* ---------- ループ ---------- */
+let last = 0;
+function frame(ts) {
+  if (!last) last = ts;
+  let dt = (ts - last) / 1000; last = ts;
+  if (dt > 0.05) dt = 0.05;      // タブ復帰時の飛び防止
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+function update(dt) {
+  if (state === "playing") {
+    timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; endGame(); }
+
+    if (fever) {
+      feverT -= dt;
+      if (feverT <= 0) { fever = false; feverGauge = 0; }
+    }
+
+    // スポーン
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      const upCount = holes.filter(h => h.mole && (h.mole.phase==="rising"||h.mole.phase==="up")).length;
+      if (upCount < maxConcurrent()) spawn();
+      spawnTimer = spawnInterval();
+    }
+  }
+
+  // モグラ状態更新
+  for (const h of holes) {
+    const m = h.mole; if (!m) continue;
+    m.t += dt;
+    if (m.phase === "rising") {
+      m.rise += dt / RISE_DUR;
+      if (m.rise >= 1) { m.rise = 1; m.phase = "up"; m.t = 0; }
+    } else if (m.phase === "up") {
+      if (m.t >= m.up) { m.phase = "falling"; m.t = 0; }   // 叩き逃し（コンボは維持）
+    } else if (m.phase === "hit") {
+      if (m.t >= HIT_HOLD) { m.phase = "falling"; m.t = 0; }
+    } else if (m.phase === "falling") {
+      m.rise -= dt / RISE_DUR;
+      if (m.rise <= 0) h.mole = null;
+    }
+  }
+
+  // ポップ文字
+  for (const p of pops) { p.y -= 46*dt; p.life -= dt*1.4; if (p.life<=0) p.dead=true; }
+  pops = pops.filter(p => !p.dead);
+  // 粒子
+  for (const p of particles) {
+    p.vy += 520*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt*1.7;
+    if (p.life <= 0) p.dead = true;
+  }
+  particles = particles.filter(p => !p.dead);
+
+  if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
+  if (redFlash > 0) redFlash = Math.max(0, redFlash - dt*2);
+  if (feverBanner > 0) feverBanner = Math.max(0, feverBanner - dt);
+}
+
+/* ---------- 描画 ---------- */
+function drawHole(h) {
+  const { cx, cy } = h;
+  // 穴の外側の土マウンド
+  ctx.fillStyle = "#3a2a1a";
+  ctx.beginPath(); ctx.ellipse(cx, cy+4, HOLE_RX+8, HOLE_RY+6, 0, 0, Math.PI*2); ctx.fill();
+  // 穴（暗い）
+  const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, HOLE_RX);
+  g.addColorStop(0, "#0d0906"); g.addColorStop(1, "#241811");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(cx, cy, HOLE_RX, HOLE_RY, 0, 0, Math.PI*2); ctx.fill();
+}
+
+function drawMole(h) {
+  const m = h.mole; if (!m || m.rise <= 0) return;
+  const cx = h.cx;
+  const my = moleCenterY(h);
+
+  // 穴の上側＋穴内部だけにクリップ（穴から出てくる見た目）
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - HOLE_RX - 20, cy_top(h.cy), (HOLE_RX+20)*2, h.cy - cy_top(h.cy));
+  ctx.moveTo(cx + HOLE_RX, h.cy);
+  ctx.ellipse(cx, h.cy, HOLE_RX, HOLE_RY, 0, 0, Math.PI);   // 穴の下半分
+  ctx.clip();
+
+  const isBomb = m.type === "bomb";
+  if (isBomb) drawBomb(cx, my, m);
+  else drawMoleBody(cx, my, m);
+
+  ctx.restore();
+
+  // 穴の手前リム（モグラの足元の継ぎ目を隠す）
+  ctx.fillStyle = "#4a3722";
+  ctx.beginPath(); ctx.ellipse(cx, h.cy, HOLE_RX, HOLE_RY, 0, 0, Math.PI); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(cx, h.cy, HOLE_RX, HOLE_RY, 0, Math.PI, Math.PI*2); ctx.stroke();
+}
+function cy_top(cy){ return cy - MOLE_UP_MAX - MOLE_R - 30; }
+
+function drawMoleBody(cx, my, m) {
+  let fur, furD, belly;
+  if (m.type === "golden") { fur="#f5c542"; furD="#d99f1e"; belly="#ffe9a8"; }
+  else if (m.type === "fast") { fur="#9aa4b0"; furD="#727d8a"; belly="#d7dde4"; }
+  else { fur="#a9835c"; furD="#87663f"; belly="#e6cda8"; }
+
+  ctx.save();
+  ctx.translate(cx, my);
+  // 出てくる時の軽い揺れ
+  const wob = Math.sin(m.wob + performance_now_safe()*0.006) * 2;
+  ctx.translate(wob, 0);
+
+  // 体
+  const bg = ctx.createLinearGradient(0,-MOLE_R,0,MOLE_R);
+  bg.addColorStop(0, fur); bg.addColorStop(1, furD);
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.arc(0, 0, MOLE_R, 0, Math.PI*2); ctx.fill();
+  // お腹
+  ctx.fillStyle = belly;
+  ctx.beginPath(); ctx.ellipse(0, 10, MOLE_R*0.6, MOLE_R*0.62, 0, 0, Math.PI*2); ctx.fill();
+  // 手
+  ctx.fillStyle = furD;
+  ctx.beginPath(); ctx.ellipse(-MOLE_R*0.7, 14, 8, 11, 0.4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( MOLE_R*0.7, 14, 8, 11, -0.4, 0, Math.PI*2); ctx.fill();
+  // 鼻
+  ctx.fillStyle = "#e86a7c";
+  ctx.beginPath(); ctx.ellipse(0, 2, 7, 5, 0, 0, Math.PI*2); ctx.fill();
+
+  if (m.dizzy) {
+    // 叩かれた：×目＋星
+    ctx.strokeStyle = "#3a2a1a"; ctx.lineWidth = 3; ctx.lineCap="round";
+    drawX(-13, -8, 5); drawX(13, -8, 5);
+    ctx.fillStyle = "#ffd54a"; ctx.font = "800 20px system-ui,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("✦", -22, -30); ctx.fillText("✦", 22, -34);
+  } else {
+    // 目
+    ctx.fillStyle = "#241812";
+    ctx.beginPath(); ctx.arc(-13, -8, 5.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( 13, -8, 5.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(-11, -10, 1.8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc( 15, -10, 1.8, 0, Math.PI*2); ctx.fill();
+    // 前歯
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-4, 8, 8, 7);
+    ctx.strokeStyle="rgba(0,0,0,.2)"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,8); ctx.lineTo(0,15); ctx.stroke();
+  }
+  if (m.type === "golden") {
+    ctx.fillStyle = "#fff8dc"; ctx.font = "800 16px system-ui,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("★", MOLE_R*0.7, -MOLE_R*0.6);
+  }
+  ctx.restore();
+}
+
+function drawBomb(cx, my, m) {
+  ctx.save();
+  ctx.translate(cx, my);
+  // 本体
+  const bg = ctx.createRadialGradient(-10,-10,4,0,0,MOLE_R);
+  bg.addColorStop(0, "#5a5f66"); bg.addColorStop(1, "#1c2024");
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.arc(0, 2, MOLE_R*0.92, 0, Math.PI*2); ctx.fill();
+  // ハイライト
+  ctx.fillStyle = "rgba(255,255,255,.28)";
+  ctx.beginPath(); ctx.ellipse(-11, -9, 7, 5, -0.5, 0, Math.PI*2); ctx.fill();
+  // 導火線
+  ctx.strokeStyle = "#8a6a3a"; ctx.lineWidth = 4; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(6, -MOLE_R*0.8); ctx.quadraticCurveTo(20, -MOLE_R*1.1, 16, -MOLE_R*1.3); ctx.stroke();
+  // 火花
+  const sp = 0.6 + 0.4*Math.sin(performance_now_safe()*0.02);
+  ctx.fillStyle = "#ffcf4a";
+  ctx.beginPath(); ctx.arc(16, -MOLE_R*1.35, 4+sp*2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#ff7a3a";
+  ctx.beginPath(); ctx.arc(16, -MOLE_R*1.35, 2+sp, 0, Math.PI*2); ctx.fill();
+  if (m.dizzy) {
+    ctx.fillStyle="#ff5a3a"; ctx.font="800 30px system-ui,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("💥", 0, 6);
+  }
+  ctx.restore();
+}
+
+function drawX(x, y, r) {
+  ctx.beginPath();
+  ctx.moveTo(x-r, y-r); ctx.lineTo(x+r, y+r);
+  ctx.moveTo(x+r, y-r); ctx.lineTo(x-r, y+r);
+  ctx.stroke();
+}
+
+let _pnow = 0;
+function performance_now_safe(){ return _pnow; }
+
+function render() {
+  _pnow = last;
+  // 背景（芝生）
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  if (fever) { bg.addColorStop(0, "#3a2f10"); bg.addColorStop(1, "#5a3a12"); }
+  else { bg.addColorStop(0, "#1f5a30"); bg.addColorStop(1, "#123f22"); }
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  // 芝の模様
+  ctx.fillStyle = fever ? "rgba(255,220,120,.06)" : "rgba(255,255,255,.05)";
+  for (let i=0;i<40;i++){ const sx=(i*83%W), sy=(120 + (i*57)%(H-120)); ctx.fillRect(sx, sy, 3, 8); }
+
+  ctx.save();
+  if (shakeT > 0) { const s = shakeT*26; ctx.translate((Math.random()-.5)*s,(Math.random()-.5)*s); }
+
+  // 上部パネル（時間・ゲージ）
+  drawTopPanel();
+
+  // 穴を先に全部、次にモグラ（手前の行が前に来るよう上から順）
+  for (const h of holes) drawHole(h);
+  for (const h of holes) drawMole(h);
+
+  // 粒子
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = `hsl(${p.hue} 90% 58%)`;
+    ctx.fillRect(p.x-3, p.y-3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+  // スコアポップ
+  for (const p of pops) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.gold ? "#ffd54a" : "#fff";
+    ctx.font = "800 26px system-ui,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(p.txt, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // 爆弾ヒットの赤フラッシュ
+  if (redFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${redFlash*0.35})`; ctx.fillRect(0,0,W,H); }
+
+  // リベンジタイム バナー
+  if (feverBanner > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, feverBanner*1.6);
+    ctx.textAlign="center";
+    ctx.fillStyle = "#ffd54a";
+    ctx.font = "800 40px system-ui,sans-serif";
+    ctx.fillText(T.fever, W/2, H/2);
+    ctx.restore();
+  }
+}
+
+function drawTopPanel() {
+  // 時間バー
+  const bx = 130, by = 26, bw = 250, bh = 14;
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  roundRectPath(bx, by, bw, bh, 7); ctx.fill();
+  const tp = Math.max(0, timeLeft / GAME_TIME);
+  const low = timeLeft <= 10 && state === "playing";
+  const pulse = low ? (0.6 + 0.4*Math.sin(_pnow*0.012)) : 1;
+  ctx.fillStyle = low ? `rgba(255,90,70,${pulse})` : "#8bd66a";
+  roundRectPath(bx, by, Math.max(0, bw*tp), bh, 7); ctx.fill();
+  // 時間数値
+  ctx.fillStyle = low ? "#ff8a7a" : "#eafff0";
+  ctx.font = "800 20px system-ui,sans-serif"; ctx.textAlign = "right";
+  ctx.fillText("⏱ " + Math.ceil(timeLeft), bx + bw, by - 6);
+
+  // リベンジゲージ
+  const gy = by + bh + 8;
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  roundRectPath(bx, gy, bw, 8, 4); ctx.fill();
+  ctx.fillStyle = fever ? "#ffae4a" : "#ffd54a";
+  const gp = fever ? Math.max(0, feverT/FEVER_DUR) : feverGauge/FEVER_NEED;
+  roundRectPath(bx, gy, Math.max(0, bw*gp), 8, 4); ctx.fill();
+  ctx.fillStyle = "#ffd54a"; ctx.font = "800 10px system-ui,sans-serif"; ctx.textAlign="right";
+  ctx.fillText(fever ? "🔥 "+T.fever : "REVENGE", bx+bw, gy-3);
+}
+
+function roundRectPath(x,y,w,h,r){
+  if (w <= 0 || h <= 0) { ctx.beginPath(); return; }   // 極小サイズのIndexSizeError回避
+  r = Math.max(0, Math.min(r, w/2, h/2));
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+/* ---------- 入力 ---------- */
+function toLocal(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * W;
+  const y = (e.clientY - rect.top) / rect.height * H;
+  return { x, y };
+}
+document.getElementById("frame").addEventListener("pointerdown", (e) => {
+  if (state !== "playing") return;
+  e.preventDefault();
+  const p = toLocal(e);
+  whackAt(p.x, p.y);
+});
+
+/* ---------- Web Audio（Day1/2流用の簡易版） ---------- */
+let actx = null, muted = false, bgmTimer = null, bgmStep = 0;
+function ensureAudio(){ if(!actx){ try { actx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} } if(actx && actx.state==="suspended") actx.resume(); }
+function tone(freq, dur, type, vol, when){
+  if (!actx || muted) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type||"square"; o.frequency.value = freq;
+  const t = actx.currentTime + (when||0);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol||0.15, t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+dur);
+}
+function noise(dur, vol){
+  if (!actx || muted) return;
+  const n = Math.floor(actx.sampleRate * dur);
+  const buf = actx.createBuffer(1, n, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<n;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/n, 2);
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const g = actx.createGain(); g.gain.value = vol||0.3;
+  src.connect(g); g.connect(actx.destination); src.start();
+}
+function beep(kind){
+  if (kind==="whack"){ tone(300 + Math.min(combo,10)*24, 0.09, "square", 0.16); tone(150,0.06,"sine",0.1); }
+  else if (kind==="golden"){ tone(700,0.07,"square",0.15); tone(1050,0.1,"triangle",0.13,0.05); tone(1400,0.12,"triangle",0.1,0.1); }
+  else if (kind==="bomb"){ noise(0.35,0.4); tone(90,0.4,"sawtooth",0.18); }
+  else if (kind==="fever"){ [0,4,7,12].forEach((s,i)=>tone(330*Math.pow(2,s/12),0.18,"triangle",0.14,i*0.08)); }
+  else if (kind==="over"){ tone(300,0.16,"sawtooth",0.15); tone(200,0.2,"sawtooth",0.15,0.14); tone(120,0.5,"sawtooth",0.15,0.3); }
+}
+const BGM = [0,3,7,3,5,3,0,-2];
+function startBGM(){
+  if (bgmTimer || !actx) return;
+  bgmTimer = setInterval(() => {
+    if (muted || !actx) return;
+    const rate = fever ? 1 : 1;
+    const base = 196 * Math.pow(2, BGM[bgmStep % BGM.length]/12) * (fever?1.5:1);
+    tone(base, 0.14, "triangle", 0.05);
+    if (bgmStep % 2 === 0) tone(base/2, 0.18, "sine", 0.05);
+    bgmStep++;
+  }, 240);
+}
+document.getElementById("muteBtn").addEventListener("click", (e) => {
+  e.stopPropagation(); muted = !muted;
+  document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+});
+
+/* ---------- シェアカード ---------- */
+function share() {
+  const cw = 600, ch = 800;
+  const oc = document.createElement("canvas"); oc.width = cw; oc.height = ch;
+  const o = oc.getContext("2d");
+  const g = o.createLinearGradient(0,0,0,ch);
+  g.addColorStop(0,"#1f5a30"); g.addColorStop(1,"#0e2f1a");
+  o.fillStyle = g; o.fillRect(0,0,cw,ch);
+
+  // 穴＋モグラ 3つ
+  const cols = [180, 300, 420], hy = 300;
+  for (let i=0;i<3;i++){
+    o.fillStyle = "#241811";
+    o.beginPath(); o.ellipse(cols[i], hy, 62, 26, 0, 0, Math.PI*2); o.fill();
+    o.fillStyle = i===1 ? "#f5c542" : "#a9835c";
+    o.beginPath(); o.arc(cols[i], hy-30, 40, 0, Math.PI*2); o.fill();
+    o.fillStyle = "#241812";
+    o.beginPath(); o.arc(cols[i]-14, hy-38, 6, 0, Math.PI*2); o.fill();
+    o.beginPath(); o.arc(cols[i]+14, hy-38, 6, 0, Math.PI*2); o.fill();
+    o.fillStyle = "#e86a7c";
+    o.beginPath(); o.ellipse(cols[i], hy-28, 8, 6, 0, 0, Math.PI*2); o.fill();
+    o.fillStyle = "#4a3722";
+    o.beginPath(); o.ellipse(cols[i], hy, 62, 26, 0, 0, Math.PI); o.fill();
+  }
+
+  o.textAlign = "center";
+  o.fillStyle = "#ffd54a"; o.font = "800 120px system-ui,sans-serif";
+  o.fillText(score, cw/2, 560);
+  o.fillStyle = "#fff"; o.font = "700 34px system-ui,sans-serif";
+  o.fillText(T.label + " ・ " + T.maxCombo + " " + maxCombo, cw/2, 610);
+  o.fillStyle = "#bfe3c6"; o.font = "600 26px system-ui,sans-serif";
+  o.fillText(T.title + "  ・  Day 3 / 100", cw/2, 700);
+  o.fillStyle = "#8fc79c"; o.font = "600 22px system-ui,sans-serif";
+  o.fillText("apps.grancavallo.com", cw/2, 738);
+
+  oc.toBlob(async (blob) => {
+    const file = new File([blob], "mogurush.png", { type: "image/png" });
+    const data = { files: [file], title: T.title, text: `${T.label}: ${score}` };
+    if (navigator.canShare && navigator.canShare(data)) {
+      try { await navigator.share(data); return; } catch(e){}
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "mogurush.png"; a.click();
+  }, "image/png");
+}
+
+/* ---------- リワード広告（モック） ----------
+   本番は showRewardedAd() の中身を実際の動画リワード広告SDK
+   （AdSense H5 Games Ads / Capacitor+AdMob 等）に差し替える。
+   「最後まで視聴 → onReward() を呼ぶ」の契約だけ守れば良い。 */
+function showRewardedAd(onReward) {
+  const scr = document.getElementById("adScreen");
+  const fill = document.getElementById("adFill");
+  const status = document.getElementById("adStatus");
+  const claim = document.getElementById("adClaimBtn");
+  document.getElementById("adCopy").textContent = T.adCopy;
+  document.getElementById("adHint").textContent = T.adHint;
+  claim.textContent = T.adClaim;
+  claim.style.visibility = "hidden";
+  fill.style.width = "0%";
+  status.textContent = T.adPlaying + " 5";
+  scr.classList.remove("hidden");
+  ensureAudio();
+
+  const DUR = 5000;
+  const t0 = performance.now();
+  let finished = false;
+  function step(now) {
+    const p = Math.min(1, (now - t0) / DUR);
+    fill.style.width = (p * 100).toFixed(1) + "%";
+    if (p >= 1) {
+      finished = true;
+      status.textContent = T.adDone;
+      claim.style.visibility = "visible";
+      beep("golden");
+    } else {
+      status.textContent = T.adPlaying + " " + Math.ceil((1 - p) * DUR / 1000);
+      requestAnimationFrame(step);
+    }
+  }
+  requestAnimationFrame(step);
+
+  claim.onclick = (e) => {
+    e.stopPropagation();
+    if (!finished) return;
+    scr.classList.add("hidden");
+    onReward();
+  };
+}
+
+/* ---------- 開始・リトライ ---------- */
+function begin() {
+  ensureAudio(); startBGM();
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("overScreen").classList.add("hidden");
+  reset();
+  state = "playing";
+}
+document.getElementById("startBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
+document.getElementById("retryBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
+document.getElementById("reviveBtn").addEventListener("click", (e)=>{ e.stopPropagation(); showRewardedAd(revive); });
+document.getElementById("shareBtn").addEventListener("click", (e)=>{ e.stopPropagation(); share(); });
+
+// スタート画面のベスト表示
+document.getElementById("startBest").textContent = best>0 ? (T.best + " : " + best) : "";
+
+// 初期状態（タイトル背景でモグラがちらほら動く）
+reset();
+state = "title";
+document.getElementById("startScreen").classList.remove("hidden");
+requestAnimationFrame(frame);
+// タイトル中もモグラを少し出す演出
+setInterval(() => { if (state === "title" && Math.random()<0.6) spawn(); }, 700);
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
