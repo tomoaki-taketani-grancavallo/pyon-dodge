@@ -1,0 +1,17 @@
+{
+  "name": "メモライト",
+  "short_name": "メモライト",
+  "description": "光った順番を覚えて同じ順にタッチ！正解するたび1つ長くなる記憶力トレーニング。 / MemoLight / 记忆之光",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1524",
+  "theme_color": "#0e1524",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

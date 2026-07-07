@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>メモライト｜Day 4</title>
+<meta name="description" content="光った順番を覚えて同じ順にタッチ！正解するたび1つ長くなる記憶力トレーニング。 / MemoLight / 记忆之光">
+<meta name="theme-color" content="#0e1524">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#060a12; }
+  body {
+    font-family: system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; user-select:none; -webkit-user-select:none;
+  }
+  #frame {
+    position:relative;
+    width: min(100vw, calc(100vh * 450 / 800), 450px);
+    aspect-ratio: 450 / 800;
+    overflow:hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    background:#0e1524;
+  }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  /* HUD */
+  #hud {
+    position:absolute; top:0; left:0; right:0; padding:14px 16px 0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none;
+  }
+  #score { font-size:46px; font-weight:800; line-height:1;
+    text-shadow:0 3px 10px rgba(0,0,0,.5); letter-spacing:1px; }
+  #scoreLbl { font-size:11px; font-weight:700; color:#9fb4e0; letter-spacing:2px; margin-top:2px; }
+  #muteBtn {
+    pointer-events:auto; width:40px; height:40px; border:none; border-radius:12px;
+    background:rgba(255,255,255,.12); color:#fff; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* Overlays */
+  .overlay {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:28px;
+    background:linear-gradient(180deg, rgba(8,12,24,.74), rgba(8,12,24,.93));
+    backdrop-filter: blur(2px);
+  }
+  .hidden { display:none !important; }
+  h1 { font-size:44px; font-weight:800; letter-spacing:1px; margin-bottom:6px;
+    background:linear-gradient(90deg,#5b8bff,#40c4ff,#b06aff,#ff6ad5);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .tag { font-size:12px; color:#8aa0cc; letter-spacing:3px; margin-bottom:20px; }
+  .lead { font-size:15px; color:#d3ddf2; line-height:1.75; margin-bottom:26px; max-width:300px; }
+  .best { font-size:14px; color:#a7b7dc; margin-bottom:24px; height:20px; }
+  .btn {
+    border:none; cursor:pointer; font-weight:800; font-size:17px; color:#0c1327;
+    padding:15px 34px; border-radius:30px; margin:6px;
+    background:linear-gradient(90deg,#40c4ff,#b06aff);
+    box-shadow:0 8px 22px rgba(91,139,255,.4);
+  }
+  .btn.sub { background:rgba(255,255,255,.14); color:#fff; box-shadow:none;
+    font-size:15px; padding:13px 26px; }
+  .btn:active { transform:translateY(1px); }
+  .row { display:flex; flex-wrap:wrap; justify-content:center; }
+  #finalLabel { font-size:13px; color:#8aa0cc; letter-spacing:2px; margin-bottom:4px; }
+  #finalScore { font-size:76px; font-weight:800; line-height:1; margin-bottom:2px;
+    background:linear-gradient(90deg,#40c4ff,#b06aff);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #record { font-size:15px; font-weight:800; color:#ffd54a; height:20px; margin-bottom:14px; }
+  #chartWrap { margin-bottom:16px; }
+  #chartTitle { font-size:11px; color:#8aa0cc; letter-spacing:2px; margin-bottom:6px; }
+  canvas#chart { width:300px; height:92px; }
+  .hint { font-size:12px; color:#7488ab; margin-top:22px; line-height:1.6; }
+
+  /* リワード広告モック */
+  #adScreen { background:rgba(4,8,16,.95); z-index:5; }
+  .adbox {
+    width:100%; max-width:320px; text-align:center;
+    background:linear-gradient(160deg,#1b2748,#111a30);
+    border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:26px 24px;
+  }
+  .adlabel { display:inline-block; font-size:11px; font-weight:800; letter-spacing:2px;
+    color:#0c1327; background:#40c4ff; padding:3px 10px; border-radius:6px; margin-bottom:16px; }
+  .adart { font-size:64px; margin:2px 0 14px; }
+  .adcopy { font-size:15px; color:#d3ddf2; margin-bottom:18px; line-height:1.6; }
+  .adbar { height:6px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; margin-bottom:10px; }
+  .adfill { height:100%; width:0; background:linear-gradient(90deg,#40c4ff,#b06aff); }
+  .adstatus { font-size:13px; color:#a7b7dc; height:18px; margin-bottom:16px; }
+  .adhint { font-size:11px; color:#6b7ea3; margin-top:16px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div>
+      <div id="score">1</div>
+      <div id="scoreLbl"></div>
+    </div>
+    <button id="muteBtn" aria-label="mute">🔊</button>
+  </div>
+
+  <!-- Start -->
+  <div id="startScreen" class="overlay">
+    <h1 id="ttl">メモライト</h1>
+    <div class="tag">DAY 4 / 100</div>
+    <p class="lead" id="lead"></p>
+    <div class="best" id="startBest"></div>
+    <button class="btn" id="startBtn"></button>
+    <div class="hint" id="ctrlHint"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="overScreen" class="overlay hidden">
+    <div id="finalLabel"></div>
+    <div id="finalScore">0</div>
+    <div id="record"></div>
+    <div id="chartWrap">
+      <div id="chartTitle"></div>
+      <canvas id="chart" width="600" height="184"></canvas>
+    </div>
+    <div class="row">
+      <button class="btn" id="retryBtn"></button>
+    </div>
+    <div class="row">
+      <button class="btn sub" id="reviveBtn"></button>
+      <button class="btn sub" id="shareBtn"></button>
+    </div>
+  </div>
+
+  <!-- リワード広告（モック：本番SDKに差し替え可能） -->
+  <div id="adScreen" class="overlay hidden">
+    <div class="adbox">
+      <div class="adlabel">AD</div>
+      <div class="adart">🎬</div>
+      <div id="adCopy" class="adcopy"></div>
+      <div class="adbar"><div id="adFill" class="adfill"></div></div>
+      <div id="adStatus" class="adstatus"></div>
+      <button class="btn" id="adClaimBtn"></button>
+      <div id="adHint" class="adhint"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ===== Day4 記憶力トレーニング（正式名称：メモライト / MemoLight / 记忆之光） =====
+   1ファイル完結・ビルド不要。Day1〜3の資産（PWA・多言語・Web Audio・シェアカード・
+   デルタタイム基準ループ・リワード広告モック）を踏襲。3×3の9パネル、ペンタトニック音階、
+   光った順を記憶して再現。正解ごとに1手ずつ伸び、レベルで再生が加速。日別ベストを可視化。 */
+
+/* ---------- 多言語 ---------- */
+const LANG = (() => {
+  const l = (navigator.language || "ja").toLowerCase();
+  if (l.startsWith("ja")) return "ja";
+  if (l.startsWith("zh")) return "zh";
+  return "en";
+})();
+const T = {
+  ja: { title:"メモライト",
+        lead:"光る順番を覚えて 同じ順にタッチ！ 正解するたび1つ長くなる。 どこまで覚えられる？",
+        start:"タップでスタート", ctrl:"光った順にパネルをタッチ",
+        best:"ベスト", scoreLbl:"LEVEL",
+        watch:"覚えて…", yourTurn:"あなたの番！",
+        finalLabel:"到達レベル", newRec:"🎉 自己ベスト更新！",
+        retry:"もう一度", revive:"▶ 動画を見て続きから", share:"結果をシェア",
+        chartTitle:"この2週間のベスト", overBanner:"ミス！", clearBanner:"レベルアップ！",
+        adCopy:"スポンサー動画", adPlaying:"再生中…", adDone:"視聴完了！", adClaim:"✕ 閉じて続ける",
+        adHint:"※実装デモ。本番は動画リワード広告を表示します" },
+  en: { title:"MemoLight",
+        lead:"Memorize the order of the lights, then tap them back! Each round adds one more. How far can you go?",
+        start:"Tap to Start", ctrl:"Tap the panels in the order they light up",
+        best:"Best", scoreLbl:"LEVEL",
+        watch:"Watch…", yourTurn:"Your turn!",
+        finalLabel:"Level reached", newRec:"🎉 New personal best!",
+        retry:"Retry", revive:"▶ Watch ad to continue", share:"Share result",
+        chartTitle:"Best of the last 2 weeks", overBanner:"MISS!", clearBanner:"LEVEL UP!",
+        adCopy:"Sponsored video", adPlaying:"Playing…", adDone:"Finished!", adClaim:"✕ Close & continue",
+        adHint:"Demo only. Production shows a rewarded video ad" },
+  zh: { title:"记忆之光",
+        lead:"记住发光的顺序， 再按相同顺序点击！ 每答对一次就多一个。 你能记住多少？",
+        start:"点击开始", ctrl:"按发光顺序点击面板",
+        best:"最高", scoreLbl:"关卡",
+        watch:"记住…", yourTurn:"轮到你了！",
+        finalLabel:"到达关卡", newRec:"🎉 刷新个人纪录！",
+        retry:"再来一次", revive:"▶ 看广告继续", share:"分享结果",
+        chartTitle:"最近两周的最好成绩", overBanner:"失误！", clearBanner:"升级！",
+        adCopy:"赞助视频", adPlaying:"播放中…", adDone:"观看完成！", adClaim:"✕ 关闭并继续",
+        adHint:"演示用。正式版将显示激励视频广告" },
+}[LANG];
+
+document.documentElement.lang = LANG;
+document.getElementById("ttl").textContent = T.title;
+document.getElementById("lead").textContent = T.lead;
+document.getElementById("scoreLbl").textContent = T.scoreLbl;
+document.getElementById("startBtn").textContent = T.start;
+document.getElementById("ctrlHint").textContent = T.ctrl;
+document.getElementById("finalLabel").textContent = T.finalLabel;
+document.getElementById("retryBtn").textContent = T.retry;
+document.getElementById("reviveBtn").textContent = T.revive;
+document.getElementById("shareBtn").textContent = T.share;
+document.getElementById("chartTitle").textContent = T.chartTitle;
+
+/* ---------- キャンバス ---------- */
+const W = 450, H = 800;
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let dpr = 1;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* ---------- パネル定義（3×3・各色＋各音） ---------- */
+// 9色（彩度高め・区別しやすい配置）
+const COLORS = [
+  "#ff5a5a", "#ff9f43", "#ffd54a",
+  "#6ada6a", "#2fd0b0", "#40c4ff",
+  "#5b8bff", "#b06aff", "#ff6ad5",
+];
+// Cメジャー・ペンタトニックを9音（上段=低音→下段=高音）
+const NOTES = [
+  261.63, 293.66, 329.63,   // C4 D4 E4
+  392.00, 440.00, 523.25,   // G4 A4 C5
+  587.33, 659.25, 783.99,   // D5 E5 G5
+];
+const GRID_X = 45, GRID_Y = 232, CELL = 120, PAD = 9;
+const PANELS = [];
+for (let i=0;i<9;i++){
+  const r = Math.floor(i/3), c = i%3;
+  PANELS.push({
+    x: GRID_X + c*CELL + PAD, y: GRID_Y + r*CELL + PAD, s: CELL - PAD*2,
+    color: COLORS[i], note: NOTES[i], glow: 0, decay: 4,
+  });
+}
+const GRID_BOTTOM = GRID_Y + 3*CELL;   // 232 + 360 = 592
+
+/* ---------- ゲーム定数 ---------- */
+const LEAD_IN   = 0.55;   // お手本開始までの間
+const BETWEEN    = 0.7;    // レベルクリア→次のお手本までの間
+function litDur(){  return lerp(0.55, 0.24, Math.min(level/22, 1)); }  // お手本の点灯時間
+function gapDur(){  return lerp(0.20, 0.07, Math.min(level/22, 1)); }  // お手本の間隔
+function tapLimit(){ return lerp(3.2, 1.5, Math.min(level/25, 1)); }   // 1タップの制限時間
+
+/* ---------- 状態 ---------- */
+let state;                 // "title" | "show" | "input" | "between" | "over"
+let seq, level, best, score;
+let showIdx, showLit, showTimer, betweenTimer;
+let inputIdx, inputTimer, inputTimerMax;
+let banner, bannerText, bannerGood, shakeT, redFlash, reviveUsed;
+let bgTier, bgTierT;
+
+best = (() => { try { return parseInt(localStorage.getItem("memolight_best")||"0",10)||0; } catch(e){ return 0; } })();
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+function randPanel(){ return Math.floor(Math.random()*9); }
+
+function reset() {
+  for (const p of PANELS) p.glow = 0;
+  seq = []; level = 1; score = 0;
+  showIdx = -1; showLit = false; showTimer = 0;
+  inputIdx = 0; inputTimer = 0; inputTimerMax = 1;
+  banner = 0; bannerText = ""; bannerGood = true;
+  shakeT = 0; redFlash = 0; reviveUsed = false;
+  bgTier = 0; bgTierT = 0;
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById("score").textContent = Math.max(1, seq ? seq.length : 1);
+}
+
+/* ---------- ラウンド進行 ---------- */
+function lightPanel(idx, forShow) {
+  const p = PANELS[idx];
+  p.glow = 1;
+  p.decay = forShow ? (1 / Math.max(0.12, litDur()*0.9)) : 4.2;
+  beepNote(p.note);
+}
+
+function nextRound() {
+  seq.push(randPanel());
+  updateHUD();
+  enterShow(LEAD_IN);
+}
+
+function enterShow(lead) {
+  state = "show";
+  showIdx = -1; showLit = false; showTimer = lead;
+}
+
+function enterInput() {
+  state = "input";
+  inputIdx = 0;
+  inputTimerMax = tapLimit();
+  inputTimer = inputTimerMax;
+}
+
+function levelComplete() {
+  score = seq.length;                       // 到達＝再現できた長さ
+  if (score > best) { best = score; try { localStorage.setItem("memolight_best", best); } catch(e){} }
+  level = seq.length + 1;
+  beep("clear");
+  // 節目（5レベルごと）で背景色チェンジ＋ファンファーレ
+  const tier = Math.floor(seq.length / 5);
+  if (tier > bgTier) { bgTier = tier; bgTierT = 1; beep("milestone"); showBanner(T.clearBanner, true); }
+  state = "between";
+  betweenTimer = BETWEEN;
+}
+
+function gameOver() {
+  state = "over";
+  score = seq.length - 1;                    // 直前まで再現できた長さ
+  if (score < 0) score = 0;
+  shakeT = 0.4; redFlash = 1;
+  beep("wrong");
+  recordDaily(score);
+  const isRec = (score > 0 && score >= best);
+  if (score > best) { best = score; try { localStorage.setItem("memolight_best", best); } catch(e){} }
+  document.getElementById("finalScore").textContent = score;
+  document.getElementById("record").textContent = isRec ? T.newRec : (T.best + " " + best);
+  document.getElementById("reviveBtn").classList.toggle("hidden", reviveUsed);
+  drawChart();
+  setTimeout(() => document.getElementById("overScreen").classList.remove("hidden"), 700);
+}
+
+function revive() {
+  if (reviveUsed) return;
+  reviveUsed = true;
+  document.getElementById("overScreen").classList.add("hidden");
+  // 同じ列をもう一度お手本 → 続きから
+  enterShow(LEAD_IN);
+}
+
+function showBanner(txt, good) { banner = 1.2; bannerText = txt; bannerGood = good; }
+
+/* ---------- 入力 ---------- */
+function panelAt(px, py) {
+  for (let i=0;i<9;i++){
+    const p = PANELS[i];
+    if (px >= p.x && px <= p.x+p.s && py >= p.y && py <= p.y+p.s) return i;
+  }
+  return -1;
+}
+function tapPanel(idx) {
+  if (state !== "input") return;
+  lightPanel(idx, false);
+  if (idx === seq[inputIdx]) {
+    inputIdx++;
+    if (inputIdx >= seq.length) { levelComplete(); }
+    else { inputTimerMax = tapLimit(); inputTimer = inputTimerMax; }
+  } else {
+    gameOver();
+  }
+}
+
+/* ---------- ループ ---------- */
+let last = 0;
+function frame(ts) {
+  if (!last) last = ts;
+  let dt = (ts - last) / 1000; last = ts;
+  if (dt > 0.05) dt = 0.05;      // タブ復帰時の飛び防止
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+function update(dt) {
+  // パネルの光の減衰
+  for (const p of PANELS) if (p.glow > 0) p.glow = Math.max(0, p.glow - p.decay*dt);
+
+  if (state === "show") {
+    showTimer -= dt;
+    if (showTimer <= 0) {
+      if (!showLit) {
+        showIdx++;
+        if (showIdx >= seq.length) { enterInput(); }
+        else { lightPanel(seq[showIdx], true); showLit = true; showTimer = litDur(); }
+      } else {
+        showLit = false; showTimer = gapDur();
+      }
+    }
+  } else if (state === "input") {
+    inputTimer -= dt;
+    if (inputTimer <= 0) { inputTimer = 0; gameOver(); }
+  } else if (state === "between") {
+    betweenTimer -= dt;
+    if (betweenTimer <= 0) nextRound();
+  } else if (state === "title") {
+    // タイトル中はパネルがランダムにきらめく
+    if (Math.random() < dt*1.4) { const p = PANELS[randPanel()]; p.glow = 0.8; p.decay = 3; }
+  }
+
+  if (shakeT > 0) shakeT = Math.max(0, shakeT - dt);
+  if (redFlash > 0) redFlash = Math.max(0, redFlash - dt*2);
+  if (banner > 0) banner = Math.max(0, banner - dt);
+  if (bgTierT > 0) bgTierT = Math.max(0, bgTierT - dt*0.6);
+}
+
+/* ---------- 描画 ---------- */
+function hexToRgb(h){ const n = parseInt(h.slice(1),16); return [ (n>>16)&255, (n>>8)&255, n&255 ]; }
+function shade(h, f){ const [r,g,b] = hexToRgb(h); return `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`; }
+
+function bgColors() {
+  // 節目ごとに色相をずらした深い夜空グラデ
+  const palettes = [
+    ["#131d33","#0b1120"], ["#1a1530","#0e0a1c"], ["#0f2333","#08131e"],
+    ["#231327","#150a18"], ["#102a26","#08150f"], ["#2a1a12","#160c08"],
+  ];
+  return palettes[bgTier % palettes.length];
+}
+
+function render() {
+  const [c0,c1] = bgColors();
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0, c0); bg.addColorStop(1, c1);
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  // 星のようなドット
+  ctx.fillStyle = "rgba(255,255,255,.05)";
+  for (let i=0;i<44;i++){ const sx=(i*97%W), sy=((i*53)% (H)); ctx.fillRect(sx, sy, 2, 2); }
+
+  ctx.save();
+  if (shakeT > 0) { const s = shakeT*22; ctx.translate((Math.random()-.5)*s,(Math.random()-.5)*s); }
+
+  // パネル
+  for (const p of PANELS) drawPanel(p);
+
+  ctx.restore();
+
+  // 状態テキスト（グリッドの下）
+  drawStatus();
+
+  // 入力の制限時間バー
+  if (state === "input") drawInputBar();
+
+  // 赤フラッシュ（ミス）
+  if (redFlash > 0) { ctx.fillStyle = `rgba(255,50,50,${redFlash*0.32})`; ctx.fillRect(0,0,W,H); }
+
+  // バナー
+  if (banner > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, banner*1.5);
+    ctx.textAlign = "center";
+    ctx.fillStyle = bannerGood ? "#7fe0a0" : "#ff7a7a";
+    ctx.font = "800 40px system-ui,sans-serif";
+    ctx.fillText(bannerText, W/2, H/2 - 40);
+    ctx.restore();
+  }
+}
+
+function drawPanel(p) {
+  const lit = p.glow;
+  // 土台（暗め）
+  roundRectPath(p.x, p.y, p.s, p.s, 20);
+  ctx.fillStyle = shade(p.color, 0.32);
+  ctx.fill();
+  // 内側のふち
+  roundRectPath(p.x+2, p.y+2, p.s-4, p.s-4, 18);
+  ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
+
+  if (lit > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, lit);
+    ctx.shadowColor = p.color; ctx.shadowBlur = 34*lit;
+    roundRectPath(p.x, p.y, p.s, p.s, 20);
+    ctx.fillStyle = p.color; ctx.fill();
+    // 白いツヤ
+    ctx.shadowBlur = 0; ctx.globalAlpha = Math.min(1, lit)*0.45;
+    roundRectPath(p.x+p.s*0.16, p.y+p.s*0.12, p.s*0.68, p.s*0.32, 14);
+    ctx.fillStyle = "#ffffff"; ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawStatus() {
+  let txt = "";
+  if (state === "show") txt = T.watch;
+  else if (state === "input") txt = T.yourTurn;
+  if (!txt) return;
+  ctx.textAlign = "center";
+  ctx.font = "800 22px system-ui,sans-serif";
+  ctx.fillStyle = state === "input" ? "#ffd54a" : "#8fb0ff";
+  ctx.fillText(txt, W/2, GRID_BOTTOM + 46);
+}
+
+function drawInputBar() {
+  const bw = 300, bx = (W-bw)/2, by = GRID_BOTTOM + 66, bh = 8;
+  ctx.fillStyle = "rgba(255,255,255,.12)";
+  roundRectPath(bx, by, bw, bh, 4); ctx.fill();
+  const tp = Math.max(0, inputTimer / inputTimerMax);
+  const low = tp < 0.34;
+  ctx.fillStyle = low ? `rgba(255,90,80,${0.6+0.4*Math.sin(last*0.012)})` : "#40c4ff";
+  roundRectPath(bx, by, Math.max(0, bw*tp), bh, 4); ctx.fill();
+}
+
+function roundRectPath(x,y,w,h,r){
+  if (w <= 0 || h <= 0) { ctx.beginPath(); return; }   // 極小サイズのIndexSizeError回避（Day2の教訓）
+  r = Math.max(0, Math.min(r, w/2, h/2));
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+/* ---------- 入力イベント ---------- */
+function toLocal(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * W;
+  const y = (e.clientY - rect.top) / rect.height * H;
+  return { x, y };
+}
+document.getElementById("frame").addEventListener("pointerdown", (e) => {
+  if (state !== "input") return;
+  e.preventDefault();
+  const p = toLocal(e);
+  const idx = panelAt(p.x, p.y);
+  if (idx >= 0) tapPanel(idx);
+});
+
+/* ---------- Web Audio（Day1〜3流用） ---------- */
+let actx = null, muted = false;
+function ensureAudio(){ if(!actx){ try { actx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} } if(actx && actx.state==="suspended") actx.resume(); }
+function tone(freq, dur, type, vol, when){
+  if (!actx || muted) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type||"sine"; o.frequency.value = freq;
+  const t = actx.currentTime + (when||0);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol||0.15, t+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+dur);
+}
+function noise(dur, vol){
+  if (!actx || muted) return;
+  const n = Math.floor(actx.sampleRate * dur);
+  const buf = actx.createBuffer(1, n, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<n;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/n, 2);
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const g = actx.createGain(); g.gain.value = vol||0.3;
+  src.connect(g); g.connect(actx.destination); src.start();
+}
+// パネル固有の音（やわらかいベル）
+function beepNote(freq){ tone(freq, 0.34, "sine", 0.2); tone(freq*2, 0.18, "triangle", 0.06); }
+function beep(kind){
+  if (kind==="clear"){ tone(660,0.09,"triangle",0.14); tone(990,0.12,"triangle",0.12,0.06); }
+  else if (kind==="milestone"){ [0,4,7,12].forEach((s,i)=>tone(392*Math.pow(2,s/12),0.2,"triangle",0.14,i*0.08)); }
+  else if (kind==="wrong"){ noise(0.3,0.28); tone(150,0.35,"sawtooth",0.16); tone(90,0.4,"sawtooth",0.14,0.05); }
+}
+document.getElementById("muteBtn").addEventListener("click", (e) => {
+  e.stopPropagation(); muted = !muted;
+  document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+});
+
+/* ---------- 日別ベストの記録・可視化 ---------- */
+function todayStr(){ const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function loadDays(){ try { return JSON.parse(localStorage.getItem("memolight_days")||"{}") || {}; } catch(e){ return {}; } }
+function recordDaily(v){
+  if (v <= 0) return;
+  const days = loadDays(); const k = todayStr();
+  if ((days[k]||0) < v) { days[k] = v; try { localStorage.setItem("memolight_days", JSON.stringify(days)); } catch(e){} }
+}
+function lastNDates(n){
+  const arr = []; const base = new Date();
+  for (let i=n-1;i>=0;i--){ const t = new Date(base); t.setDate(base.getDate()-i);
+    arr.push(t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0")); }
+  return arr;
+}
+function drawChart() {
+  const cv = document.getElementById("chart");
+  const g = cv.getContext("2d");
+  const cw = cv.width, ch = cv.height;
+  g.clearRect(0,0,cw,ch);
+  const days = loadDays();
+  const keys = lastNDates(14);
+  const vals = keys.map(k => days[k]||0);
+  const mx = Math.max(1, ...vals);
+  const today = todayStr();
+  const n = keys.length;
+  const gap = 8, bw = (cw - gap*(n-1)) / n;
+  const baseY = ch - 24, topY = 14;
+  // 目盛りライン
+  g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, baseY); g.lineTo(cw, baseY); g.stroke();
+  for (let i=0;i<n;i++){
+    const v = vals[i];
+    const h = v > 0 ? Math.max(6, (baseY-topY) * v/mx) : 3;
+    const x = i*(bw+gap), y = baseY - h;
+    const isToday = keys[i] === today;
+    if (isToday) {
+      const grad = g.createLinearGradient(0,y,0,baseY);
+      grad.addColorStop(0,"#40c4ff"); grad.addColorStop(1,"#b06aff");
+      g.fillStyle = grad;
+    } else {
+      g.fillStyle = v > 0 ? "rgba(150,170,220,.55)" : "rgba(255,255,255,.12)";
+    }
+    roundRect2(g, x, y, bw, h, 5); g.fill();
+    if (v > 0) {
+      g.fillStyle = isToday ? "#ffffff" : "#9fb4e0";
+      g.font = "700 20px system-ui,sans-serif"; g.textAlign = "center";
+      g.fillText(v, x+bw/2, y-6);
+    }
+  }
+}
+function roundRect2(g,x,y,w,h,r){
+  if (w<=0||h<=0){ g.beginPath(); return; }
+  r = Math.max(0, Math.min(r, w/2, h/2));
+  g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+
+/* ---------- シェアカード ---------- */
+function share() {
+  const cw = 600, ch = 800;
+  const oc = document.createElement("canvas"); oc.width = cw; oc.height = ch;
+  const o = oc.getContext("2d");
+  const g = o.createLinearGradient(0,0,0,ch);
+  g.addColorStop(0,"#131d33"); g.addColorStop(1,"#0b1120");
+  o.fillStyle = g; o.fillRect(0,0,cw,ch);
+
+  // 3×3 ミニパネル
+  const gx = 150, gy = 150, cell = 100, pad = 10;
+  for (let i=0;i<9;i++){
+    const r = Math.floor(i/3), c = i%3;
+    const x = gx + c*cell + pad, y = gy + r*cell + pad, s = cell - pad*2;
+    o.fillStyle = COLORS[i];
+    roundRect2(o, x, y, s, s, 16); o.fill();
+  }
+  o.textAlign = "center";
+  o.fillStyle = "#fff"; o.font = "800 120px system-ui,sans-serif";
+  o.fillText(score, cw/2, 590);
+  o.fillStyle = "#9fb4e0"; o.font = "700 30px system-ui,sans-serif";
+  o.fillText(T.finalLabel, cw/2, 636);
+  o.fillStyle = "#cfe0ff"; o.font = "600 26px system-ui,sans-serif";
+  o.fillText(T.title + "  ・  Day 4 / 100", cw/2, 706);
+  o.fillStyle = "#8aa0cc"; o.font = "600 22px system-ui,sans-serif";
+  o.fillText("apps.grancavallo.com", cw/2, 744);
+
+  oc.toBlob(async (blob) => {
+    const file = new File([blob], "memolight.png", { type: "image/png" });
+    const data = { files: [file], title: T.title, text: `${T.finalLabel}: ${score}` };
+    if (navigator.canShare && navigator.canShare(data)) {
+      try { await navigator.share(data); return; } catch(e){}
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "memolight.png"; a.click();
+  }, "image/png");
+}
+
+/* ---------- リワード広告（モック） ----------
+   本番は showRewardedAd() の中身を実際の動画リワード広告SDK
+   （AdSense H5 Games Ads / Capacitor+AdMob 等）に差し替える。
+   「最後まで視聴 → onReward() を呼ぶ」の契約だけ守れば良い。 */
+function showRewardedAd(onReward) {
+  const scr = document.getElementById("adScreen");
+  const fill = document.getElementById("adFill");
+  const status = document.getElementById("adStatus");
+  const claim = document.getElementById("adClaimBtn");
+  document.getElementById("adCopy").textContent = T.adCopy;
+  document.getElementById("adHint").textContent = T.adHint;
+  claim.textContent = T.adClaim;
+  claim.style.visibility = "hidden";
+  fill.style.width = "0%";
+  status.textContent = T.adPlaying + " 5";
+  scr.classList.remove("hidden");
+  ensureAudio();
+
+  const DUR = 5000;
+  const t0 = performance.now();
+  let finished = false;
+  function step(now) {
+    const p = Math.min(1, (now - t0) / DUR);
+    fill.style.width = (p * 100).toFixed(1) + "%";
+    if (p >= 1) {
+      finished = true;
+      status.textContent = T.adDone;
+      claim.style.visibility = "visible";
+      beep("clear");
+    } else {
+      status.textContent = T.adPlaying + " " + Math.ceil((1 - p) * DUR / 1000);
+      requestAnimationFrame(step);
+    }
+  }
+  requestAnimationFrame(step);
+
+  claim.onclick = (e) => {
+    e.stopPropagation();
+    if (!finished) return;
+    scr.classList.add("hidden");
+    onReward();
+  };
+}
+
+/* ---------- 開始・リトライ ---------- */
+function begin() {
+  ensureAudio();
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("overScreen").classList.add("hidden");
+  reset();
+  nextRound();               // 最初の1手を出してお手本開始
+}
+document.getElementById("startBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
+document.getElementById("retryBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
+document.getElementById("reviveBtn").addEventListener("click", (e)=>{ e.stopPropagation(); showRewardedAd(revive); });
+document.getElementById("shareBtn").addEventListener("click", (e)=>{ e.stopPropagation(); share(); });
+
+// スタート画面のベスト表示
+document.getElementById("startBest").textContent = best>0 ? (T.best + " : " + best) : "";
+
+// 初期状態（タイトル背景でパネルがきらめく）
+reset();
+state = "title";
+document.getElementById("startScreen").classList.remove("hidden");
+requestAnimationFrame(frame);
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
