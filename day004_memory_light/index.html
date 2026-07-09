@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>メモライト｜Day 4</title>
-<meta name="description" content="光った順番を覚えて同じ順にタッチ！正解するたび1つ長くなる記憶力トレーニング。 / MemoLight / 记忆之光">
+<meta name="description" content="光った順番を覚えて同じ順にタッチ！難易度を選んで全10ゲームで高スコアを目指す記憶力トレーニング。 / MemoLight / 记忆之光">
 <meta name="theme-color" content="#0e1524">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -32,7 +32,7 @@
     display:flex; justify-content:space-between; align-items:flex-start;
     pointer-events:none;
   }
-  #score { font-size:46px; font-weight:800; line-height:1;
+  #score { font-size:44px; font-weight:800; line-height:1;
     text-shadow:0 3px 10px rgba(0,0,0,.5); letter-spacing:1px; }
   #scoreLbl { font-size:11px; font-weight:700; color:#9fb4e0; letter-spacing:2px; margin-top:2px; }
   #muteBtn {
@@ -52,9 +52,22 @@
   h1 { font-size:44px; font-weight:800; letter-spacing:1px; margin-bottom:6px;
     background:linear-gradient(90deg,#5b8bff,#40c4ff,#b06aff,#ff6ad5);
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  .tag { font-size:12px; color:#8aa0cc; letter-spacing:3px; margin-bottom:20px; }
-  .lead { font-size:15px; color:#d3ddf2; line-height:1.75; margin-bottom:26px; max-width:300px; }
-  .best { font-size:14px; color:#a7b7dc; margin-bottom:24px; height:20px; }
+  .tag { font-size:12px; color:#8aa0cc; letter-spacing:3px; margin-bottom:18px; }
+  .lead { font-size:14px; color:#d3ddf2; line-height:1.7; margin-bottom:22px; max-width:310px; }
+  .pick { font-size:12px; color:#9fb4e0; letter-spacing:2px; margin-bottom:12px; }
+  .diffBtns { display:flex; flex-direction:column; gap:11px; width:100%; max-width:300px; }
+  .diff {
+    border:none; cursor:pointer; border-radius:16px; padding:13px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    color:#0c1327; text-align:left;
+  }
+  .diff .dl { font-weight:800; font-size:18px; }
+  .diff .dd { font-weight:600; font-size:11px; opacity:.8; margin-top:2px; }
+  .diff .db { font-weight:800; font-size:12px; color:rgba(12,19,39,.7); white-space:nowrap; }
+  .diff.easy   { background:linear-gradient(90deg,#6ada6a,#2fd0b0); }
+  .diff.normal { background:linear-gradient(90deg,#40c4ff,#5b8bff); }
+  .diff.hard   { background:linear-gradient(90deg,#b06aff,#ff6ad5); }
+  .diff:active { transform:translateY(1px); }
   .btn {
     border:none; cursor:pointer; font-weight:800; font-size:17px; color:#0c1327;
     padding:15px 34px; border-radius:30px; margin:6px;
@@ -65,31 +78,17 @@
     font-size:15px; padding:13px 26px; }
   .btn:active { transform:translateY(1px); }
   .row { display:flex; flex-wrap:wrap; justify-content:center; }
+  .hint { font-size:12px; color:#7488ab; margin-top:20px; line-height:1.6; }
+
   #finalLabel { font-size:13px; color:#8aa0cc; letter-spacing:2px; margin-bottom:4px; }
-  #finalScore { font-size:76px; font-weight:800; line-height:1; margin-bottom:2px;
+  #finalScore { font-size:74px; font-weight:800; line-height:1; margin-bottom:2px;
     background:linear-gradient(90deg,#40c4ff,#b06aff);
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #finalMeta { font-size:14px; color:#cfe0ff; height:20px; margin-bottom:4px; }
   #record { font-size:15px; font-weight:800; color:#ffd54a; height:20px; margin-bottom:14px; }
   #chartWrap { margin-bottom:16px; }
   #chartTitle { font-size:11px; color:#8aa0cc; letter-spacing:2px; margin-bottom:6px; }
   canvas#chart { width:300px; height:92px; }
-  .hint { font-size:12px; color:#7488ab; margin-top:22px; line-height:1.6; }
-
-  /* リワード広告モック */
-  #adScreen { background:rgba(4,8,16,.95); z-index:5; }
-  .adbox {
-    width:100%; max-width:320px; text-align:center;
-    background:linear-gradient(160deg,#1b2748,#111a30);
-    border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:26px 24px;
-  }
-  .adlabel { display:inline-block; font-size:11px; font-weight:800; letter-spacing:2px;
-    color:#0c1327; background:#40c4ff; padding:3px 10px; border-radius:6px; margin-bottom:16px; }
-  .adart { font-size:64px; margin:2px 0 14px; }
-  .adcopy { font-size:15px; color:#d3ddf2; margin-bottom:18px; line-height:1.6; }
-  .adbar { height:6px; background:rgba(255,255,255,.12); border-radius:3px; overflow:hidden; margin-bottom:10px; }
-  .adfill { height:100%; width:0; background:linear-gradient(90deg,#40c4ff,#b06aff); }
-  .adstatus { font-size:13px; color:#a7b7dc; height:18px; margin-bottom:16px; }
-  .adhint { font-size:11px; color:#6b7ea3; margin-top:16px; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -98,7 +97,7 @@
 
   <div id="hud">
     <div>
-      <div id="score">1</div>
+      <div id="score">0</div>
       <div id="scoreLbl"></div>
     </div>
     <button id="muteBtn" aria-label="mute">🔊</button>
@@ -109,15 +108,29 @@
     <h1 id="ttl">メモライト</h1>
     <div class="tag">DAY 4 / 100</div>
     <p class="lead" id="lead"></p>
-    <div class="best" id="startBest"></div>
-    <button class="btn" id="startBtn"></button>
+    <div class="pick" id="pickLbl"></div>
+    <div class="diffBtns">
+      <button class="diff easy" id="btnEasy">
+        <span><span class="dl" id="easyL"></span><span class="dd" id="easyD"></span></span>
+        <span class="db" id="easyB"></span>
+      </button>
+      <button class="diff normal" id="btnNormal">
+        <span><span class="dl" id="normalL"></span><span class="dd" id="normalD"></span></span>
+        <span class="db" id="normalB"></span>
+      </button>
+      <button class="diff hard" id="btnHard">
+        <span><span class="dl" id="hardL"></span><span class="dd" id="hardD"></span></span>
+        <span class="db" id="hardB"></span>
+      </button>
+    </div>
     <div class="hint" id="ctrlHint"></div>
   </div>
 
-  <!-- Game over -->
+  <!-- Result（全10ゲーム終了） -->
   <div id="overScreen" class="overlay hidden">
     <div id="finalLabel"></div>
     <div id="finalScore">0</div>
+    <div id="finalMeta"></div>
     <div id="record"></div>
     <div id="chartWrap">
       <div id="chartTitle"></div>
@@ -127,21 +140,7 @@
       <button class="btn" id="retryBtn"></button>
     </div>
     <div class="row">
-      <button class="btn sub" id="reviveBtn"></button>
       <button class="btn sub" id="shareBtn"></button>
-    </div>
-  </div>
-
-  <!-- リワード広告（モック：本番SDKに差し替え可能） -->
-  <div id="adScreen" class="overlay hidden">
-    <div class="adbox">
-      <div class="adlabel">AD</div>
-      <div class="adart">🎬</div>
-      <div id="adCopy" class="adcopy"></div>
-      <div class="adbar"><div id="adFill" class="adfill"></div></div>
-      <div id="adStatus" class="adstatus"></div>
-      <button class="btn" id="adClaimBtn"></button>
-      <div id="adHint" class="adhint"></div>
     </div>
   </div>
 </div>
@@ -150,8 +149,9 @@
 "use strict";
 /* ===== Day4 記憶力トレーニング（正式名称：メモライト / MemoLight / 记忆之光） =====
    1ファイル完結・ビルド不要。Day1〜3の資産（PWA・多言語・Web Audio・シェアカード・
-   デルタタイム基準ループ・リワード広告モック）を踏襲。3×3の9パネル、ペンタトニック音階、
-   光った順を記憶して再現。正解ごとに1手ずつ伸び、レベルで再生が加速。日別ベストを可視化。 */
+   デルタタイム基準ループ）を踏襲。3×3の9パネル、ペンタトニック音階。
+   仕様: 開始前に難易度3択 → 全10ゲーム。各ゲームは毎回フルランダムな手順。
+   ミスしてもそのゲームが失敗になるだけで、必ず10ゲーム遊べる（合計スコアを競う）。 */
 
 /* ---------- 多言語 ---------- */
 const LANG = (() => {
@@ -162,52 +162,61 @@ const LANG = (() => {
 })();
 const T = {
   ja: { title:"メモライト",
-        lead:"光る順番を覚えて 同じ順にタッチ！ 正解するたび1つ長くなる。 どこまで覚えられる？",
-        start:"タップでスタート", ctrl:"光った順にパネルをタッチ",
-        best:"ベスト", scoreLbl:"LEVEL",
+        lead:"光る順番を覚えて同じ順にタッチ！ 手順は毎回ランダム。 難易度を選んで全10ゲームで高得点を目指そう。",
+        pick:"難易度をえらぶ", ctrl:"光った順にパネルをタッチ",
+        easy:"かんたん", normal:"ふつう", hard:"むずかしい",
+        easyD:"3〜7手・ゆっくり", normalD:"4〜8手・ふつう", hardD:"5〜9手・はやい",
+        best:"ベスト", scoreLbl:"SCORE",
         watch:"覚えて…", yourTurn:"あなたの番！",
-        finalLabel:"到達レベル", newRec:"🎉 自己ベスト更新！",
-        retry:"もう一度", revive:"▶ 動画を見て続きから", share:"結果をシェア",
-        chartTitle:"この2週間のベスト", overBanner:"ミス！", clearBanner:"レベルアップ！",
-        adCopy:"スポンサー動画", adPlaying:"再生中…", adDone:"視聴完了！", adClaim:"✕ 閉じて続ける",
-        adHint:"※実装デモ。本番は動画リワード広告を表示します" },
+        roundClear:"せいかい！", roundMiss:"ミス…",
+        finalLabel:"スコア", newRec:"🎉 自己ベスト更新！",
+        retry:"もう一度", share:"結果をシェア",
+        chartTitle:"この2週間のベスト", perfect:"パーフェクト！",
+        clearsOf:"クリア" },
   en: { title:"MemoLight",
-        lead:"Memorize the order of the lights, then tap them back! Each round adds one more. How far can you go?",
-        start:"Tap to Start", ctrl:"Tap the panels in the order they light up",
-        best:"Best", scoreLbl:"LEVEL",
+        lead:"Memorize the lights and tap them back! A fresh random sequence every game. Pick a difficulty and aim high over 10 games.",
+        pick:"CHOOSE DIFFICULTY", ctrl:"Tap the panels in the order they light up",
+        easy:"EASY", normal:"NORMAL", hard:"HARD",
+        easyD:"3–7 steps · slow", normalD:"4–8 steps · normal", hardD:"5–9 steps · fast",
+        best:"Best", scoreLbl:"SCORE",
         watch:"Watch…", yourTurn:"Your turn!",
-        finalLabel:"Level reached", newRec:"🎉 New personal best!",
-        retry:"Retry", revive:"▶ Watch ad to continue", share:"Share result",
-        chartTitle:"Best of the last 2 weeks", overBanner:"MISS!", clearBanner:"LEVEL UP!",
-        adCopy:"Sponsored video", adPlaying:"Playing…", adDone:"Finished!", adClaim:"✕ Close & continue",
-        adHint:"Demo only. Production shows a rewarded video ad" },
+        roundClear:"CLEAR!", roundMiss:"Miss…",
+        finalLabel:"SCORE", newRec:"🎉 New personal best!",
+        retry:"Retry", share:"Share result",
+        chartTitle:"Best of the last 2 weeks", perfect:"PERFECT!",
+        clearsOf:"cleared" },
   zh: { title:"记忆之光",
-        lead:"记住发光的顺序， 再按相同顺序点击！ 每答对一次就多一个。 你能记住多少？",
-        start:"点击开始", ctrl:"按发光顺序点击面板",
-        best:"最高", scoreLbl:"关卡",
+        lead:"记住发光顺序再按相同顺序点击！ 每局顺序随机。 选择难度，用全10局挑战高分。",
+        pick:"选择难度", ctrl:"按发光顺序点击面板",
+        easy:"简单", normal:"普通", hard:"困难",
+        easyD:"3〜7步·慢", normalD:"4〜8步·中", hardD:"5〜9步·快",
+        best:"最高", scoreLbl:"分数",
         watch:"记住…", yourTurn:"轮到你了！",
-        finalLabel:"到达关卡", newRec:"🎉 刷新个人纪录！",
-        retry:"再来一次", revive:"▶ 看广告继续", share:"分享结果",
-        chartTitle:"最近两周的最好成绩", overBanner:"失误！", clearBanner:"升级！",
-        adCopy:"赞助视频", adPlaying:"播放中…", adDone:"观看完成！", adClaim:"✕ 关闭并继续",
-        adHint:"演示用。正式版将显示激励视频广告" },
+        roundClear:"正确！", roundMiss:"失误…",
+        finalLabel:"分数", newRec:"🎉 刷新个人纪录！",
+        retry:"再来一次", share:"分享结果",
+        chartTitle:"最近两周的最好成绩", perfect:"完美！",
+        clearsOf:"通关" },
 }[LANG];
 
 document.documentElement.lang = LANG;
-document.getElementById("ttl").textContent = T.title;
-document.getElementById("lead").textContent = T.lead;
-document.getElementById("scoreLbl").textContent = T.scoreLbl;
-document.getElementById("startBtn").textContent = T.start;
-document.getElementById("ctrlHint").textContent = T.ctrl;
-document.getElementById("finalLabel").textContent = T.finalLabel;
-document.getElementById("retryBtn").textContent = T.retry;
-document.getElementById("reviveBtn").textContent = T.revive;
-document.getElementById("shareBtn").textContent = T.share;
-document.getElementById("chartTitle").textContent = T.chartTitle;
+const $ = (id) => document.getElementById(id);
+$("ttl").textContent = T.title;
+$("lead").textContent = T.lead;
+$("pickLbl").textContent = T.pick;
+$("ctrlHint").textContent = T.ctrl;
+$("scoreLbl").textContent = T.scoreLbl;
+$("easyL").textContent = T.easy;   $("easyD").textContent = T.easyD;
+$("normalL").textContent = T.normal; $("normalD").textContent = T.normalD;
+$("hardL").textContent = T.hard;   $("hardD").textContent = T.hardD;
+$("finalLabel").textContent = T.finalLabel;
+$("retryBtn").textContent = T.retry;
+$("shareBtn").textContent = T.share;
+$("chartTitle").textContent = T.chartTitle;
 
 /* ---------- キャンバス ---------- */
 const W = 450, H = 800;
-const canvas = document.getElementById("c");
+const canvas = $("c");
 const ctx = canvas.getContext("2d");
 let dpr = 1;
 function resize() {
@@ -219,7 +228,6 @@ resize();
 window.addEventListener("resize", resize);
 
 /* ---------- パネル定義（3×3・各色＋各音） ---------- */
-// 9色（彩度高め・区別しやすい配置）
 const COLORS = [
   "#ff5a5a", "#ff9f43", "#ffd54a",
   "#6ada6a", "#2fd0b0", "#40c4ff",
@@ -227,9 +235,9 @@ const COLORS = [
 ];
 // Cメジャー・ペンタトニックを9音（上段=低音→下段=高音）
 const NOTES = [
-  261.63, 293.66, 329.63,   // C4 D4 E4
-  392.00, 440.00, 523.25,   // G4 A4 C5
-  587.33, 659.25, 783.99,   // D5 E5 G5
+  261.63, 293.66, 329.63,
+  392.00, 440.00, 523.25,
+  587.33, 659.25, 783.99,
 ];
 const GRID_X = 45, GRID_Y = 232, CELL = 120, PAD = 9;
 const PANELS = [];
@@ -240,54 +248,61 @@ for (let i=0;i<9;i++){
     color: COLORS[i], note: NOTES[i], glow: 0, decay: 4,
   });
 }
-const GRID_BOTTOM = GRID_Y + 3*CELL;   // 232 + 360 = 592
+const GRID_BOTTOM = GRID_Y + 3*CELL;   // 592
 
-/* ---------- ゲーム定数 ---------- */
-const LEAD_IN   = 0.55;   // お手本開始までの間
-const BETWEEN    = 0.7;    // レベルクリア→次のお手本までの間
-function litDur(){  return lerp(0.55, 0.24, Math.min(level/22, 1)); }  // お手本の点灯時間
-function gapDur(){  return lerp(0.20, 0.07, Math.min(level/22, 1)); }  // お手本の間隔
-function tapLimit(){ return lerp(3.2, 1.5, Math.min(level/25, 1)); }   // 1タップの制限時間
+/* ---------- 難易度・ゲーム定数 ---------- */
+const ROUNDS = 10;            // 1プレイ=10ゲーム
+const LEAD_IN = 0.55;         // お手本開始までの間
+const ROUNDEND_HOLD = 1.15;   // ゲーム間の結果表示
+const DIFF = {
+  easy:   { key:"easy",   base:3, lit:0.55, gap:0.20, tap:3.2, mult:1, colU:"#6ada6a", colD:"#2fd0b0", label:T.easy },
+  normal: { key:"normal", base:4, lit:0.40, gap:0.13, tap:2.6, mult:2, colU:"#40c4ff", colD:"#5b8bff", label:T.normal },
+  hard:   { key:"hard",   base:5, lit:0.28, gap:0.09, tap:2.0, mult:3, colU:"#b06aff", colD:"#ff6ad5", label:T.hard },
+};
+// ラウンド(0始まり)ごとの手数：base + floor(round/2) → 例) easy:3,3,4,4,5,5,6,6,7,7
+function seqLenForRound(r){ return diff.base + Math.floor(r/2); }
 
 /* ---------- 状態 ---------- */
-let state;                 // "title" | "show" | "input" | "between" | "over"
-let seq, level, best, score;
-let showIdx, showLit, showTimer, betweenTimer;
+let state;                 // "title" | "show" | "input" | "roundend" | "over"
+let diff = DIFF.normal;
+let seq, roundIdx, score, roundScore, roundResults;
+let showIdx, showLit, showTimer;
 let inputIdx, inputTimer, inputTimerMax;
-let banner, bannerText, bannerGood, shakeT, redFlash, reviveUsed;
+let banner, bannerText, bannerGood, roundEndTimer, shakeT, redFlash;
 let bgTier, bgTierT;
 
-best = (() => { try { return parseInt(localStorage.getItem("memolight_best")||"0",10)||0; } catch(e){ return 0; } })();
+function bestKey(k){ return "memolight_best_" + k; }
+function bestOf(k){ try { return parseInt(localStorage.getItem(bestKey(k))||"0",10)||0; } catch(e){ return 0; } }
 
 function lerp(a,b,t){ return a + (b-a)*t; }
 function randPanel(){ return Math.floor(Math.random()*9); }
 
-function reset() {
+function resetPlay(d) {
+  diff = d;
   for (const p of PANELS) p.glow = 0;
-  seq = []; level = 1; score = 0;
-  showIdx = -1; showLit = false; showTimer = 0;
-  inputIdx = 0; inputTimer = 0; inputTimerMax = 1;
-  banner = 0; bannerText = ""; bannerGood = true;
-  shakeT = 0; redFlash = 0; reviveUsed = false;
-  bgTier = 0; bgTierT = 0;
+  score = 0; roundIdx = 0; roundResults = [];
+  banner = 0; shakeT = 0; redFlash = 0; bgTier = 0; bgTierT = 0;
   updateHUD();
 }
 
 function updateHUD() {
-  document.getElementById("score").textContent = Math.max(1, seq ? seq.length : 1);
+  $("score").textContent = score || 0;
 }
 
 /* ---------- ラウンド進行 ---------- */
 function lightPanel(idx, forShow) {
   const p = PANELS[idx];
   p.glow = 1;
-  p.decay = forShow ? (1 / Math.max(0.12, litDur()*0.9)) : 4.2;
+  p.decay = forShow ? (1 / Math.max(0.12, diff.lit*0.9)) : 4.2;
   beepNote(p.note);
 }
 
-function nextRound() {
-  seq.push(randPanel());
-  updateHUD();
+function startRound() {
+  // 毎回フルランダムな手順を生成（前ラウンドは一切使わない）
+  const L = seqLenForRound(roundIdx);
+  seq = [];
+  for (let i=0;i<L;i++) seq.push(randPanel());
+  roundScore = 0;
   enterShow(LEAD_IN);
 }
 
@@ -299,47 +314,54 @@ function enterShow(lead) {
 function enterInput() {
   state = "input";
   inputIdx = 0;
-  inputTimerMax = tapLimit();
+  inputTimerMax = diff.tap;
   inputTimer = inputTimerMax;
 }
 
-function levelComplete() {
-  score = seq.length;                       // 到達＝再現できた長さ
-  if (score > best) { best = score; try { localStorage.setItem("memolight_best", best); } catch(e){} }
-  level = seq.length + 1;
+// ラウンド成功（全問正解）
+function roundClear() {
+  roundScore += seq.length * 10 * diff.mult;   // 全問正解ボーナス（タップ分と同額）
+  score += roundScore;
+  roundResults.push(true);
   beep("clear");
-  // 節目（5レベルごと）で背景色チェンジ＋ファンファーレ
-  const tier = Math.floor(seq.length / 5);
-  if (tier > bgTier) { bgTier = tier; bgTierT = 1; beep("milestone"); showBanner(T.clearBanner, true); }
-  state = "between";
-  betweenTimer = BETWEEN;
+  const tier = Math.floor((roundIdx+1) / 4);
+  if (tier > bgTier) { bgTier = tier; bgTierT = 1; }
+  showBanner(T.roundClear + "  +" + roundScore, true);
+  endRound();
 }
 
-function gameOver() {
-  state = "over";
-  score = seq.length - 1;                    // 直前まで再現できた長さ
-  if (score < 0) score = 0;
+// ラウンド失敗（誤タップ or 時間切れ）— プレイは終わらせない
+function roundFail() {
+  score += roundScore;                         // そこまでに取った分は加算
+  roundResults.push(false);
   shakeT = 0.4; redFlash = 1;
   beep("wrong");
+  showBanner(T.roundMiss, false);
+  endRound();
+}
+
+function endRound() {
+  updateHUD();
+  state = "roundend";
+  roundEndTimer = ROUNDEND_HOLD;
+}
+
+function finishPlay() {
+  state = "over";
+  const clears = roundResults.filter(Boolean).length;
   recordDaily(score);
-  const isRec = (score > 0 && score >= best);
-  if (score > best) { best = score; try { localStorage.setItem("memolight_best", best); } catch(e){} }
-  document.getElementById("finalScore").textContent = score;
-  document.getElementById("record").textContent = isRec ? T.newRec : (T.best + " " + best);
-  document.getElementById("reviveBtn").classList.toggle("hidden", reviveUsed);
+  const prevBest = bestOf(diff.key);
+  const isRec = score > 0 && score >= prevBest;
+  if (score > prevBest) { try { localStorage.setItem(bestKey(diff.key), score); } catch(e){} }
+  $("finalScore").textContent = score;
+  $("finalMeta").textContent = diff.label + " ・ " + clears + "/" + ROUNDS + " " + T.clearsOf
+    + (clears === ROUNDS ? "  " + T.perfect : "");
+  $("record").textContent = isRec ? T.newRec : (T.best + " " + Math.max(prevBest, score));
   drawChart();
-  setTimeout(() => document.getElementById("overScreen").classList.remove("hidden"), 700);
+  setTimeout(() => $("overScreen").classList.remove("hidden"), 700);
 }
 
-function revive() {
-  if (reviveUsed) return;
-  reviveUsed = true;
-  document.getElementById("overScreen").classList.add("hidden");
-  // 同じ列をもう一度お手本 → 続きから
-  enterShow(LEAD_IN);
-}
-
-function showBanner(txt, good) { banner = 1.2; bannerText = txt; bannerGood = good; }
+function showBanner(txt, good) { banner = 1.3; bannerText = txt; bannerGood = good; }
 
 /* ---------- 入力 ---------- */
 function panelAt(px, py) {
@@ -353,27 +375,30 @@ function tapPanel(idx) {
   if (state !== "input") return;
   lightPanel(idx, false);
   if (idx === seq[inputIdx]) {
+    roundScore += 10 * diff.mult;
     inputIdx++;
-    if (inputIdx >= seq.length) { levelComplete(); }
-    else { inputTimerMax = tapLimit(); inputTimer = inputTimerMax; }
+    updateHUD2();
+    if (inputIdx >= seq.length) { roundClear(); }
+    else { inputTimerMax = diff.tap; inputTimer = inputTimerMax; }
   } else {
-    gameOver();
+    roundFail();
   }
 }
+// 入力中の見かけスコア（確定はラウンド終了時だが、体感のため加算表示）
+function updateHUD2(){ $("score").textContent = score + roundScore; }
 
 /* ---------- ループ ---------- */
 let last = 0;
 function frame(ts) {
   if (!last) last = ts;
   let dt = (ts - last) / 1000; last = ts;
-  if (dt > 0.05) dt = 0.05;      // タブ復帰時の飛び防止
+  if (dt > 0.05) dt = 0.05;
   update(dt);
   render();
   requestAnimationFrame(frame);
 }
 
 function update(dt) {
-  // パネルの光の減衰
   for (const p of PANELS) if (p.glow > 0) p.glow = Math.max(0, p.glow - p.decay*dt);
 
   if (state === "show") {
@@ -382,19 +407,22 @@ function update(dt) {
       if (!showLit) {
         showIdx++;
         if (showIdx >= seq.length) { enterInput(); }
-        else { lightPanel(seq[showIdx], true); showLit = true; showTimer = litDur(); }
+        else { lightPanel(seq[showIdx], true); showLit = true; showTimer = diff.lit; }
       } else {
-        showLit = false; showTimer = gapDur();
+        showLit = false; showTimer = diff.gap;
       }
     }
   } else if (state === "input") {
     inputTimer -= dt;
-    if (inputTimer <= 0) { inputTimer = 0; gameOver(); }
-  } else if (state === "between") {
-    betweenTimer -= dt;
-    if (betweenTimer <= 0) nextRound();
+    if (inputTimer <= 0) { inputTimer = 0; roundFail(); }
+  } else if (state === "roundend") {
+    roundEndTimer -= dt;
+    if (roundEndTimer <= 0) {
+      roundIdx++;
+      if (roundIdx >= ROUNDS) finishPlay();
+      else startRound();
+    }
   } else if (state === "title") {
-    // タイトル中はパネルがランダムにきらめく
     if (Math.random() < dt*1.4) { const p = PANELS[randPanel()]; p.glow = 0.8; p.decay = 3; }
   }
 
@@ -409,10 +437,9 @@ function hexToRgb(h){ const n = parseInt(h.slice(1),16); return [ (n>>16)&255, (
 function shade(h, f){ const [r,g,b] = hexToRgb(h); return `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`; }
 
 function bgColors() {
-  // 節目ごとに色相をずらした深い夜空グラデ
   const palettes = [
     ["#131d33","#0b1120"], ["#1a1530","#0e0a1c"], ["#0f2333","#08131e"],
-    ["#231327","#150a18"], ["#102a26","#08150f"], ["#2a1a12","#160c08"],
+    ["#231327","#150a18"],
   ];
   return palettes[bgTier % palettes.length];
 }
@@ -423,46 +450,55 @@ function render() {
   bg.addColorStop(0, c0); bg.addColorStop(1, c1);
   ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
 
-  // 星のようなドット
   ctx.fillStyle = "rgba(255,255,255,.05)";
-  for (let i=0;i<44;i++){ const sx=(i*97%W), sy=((i*53)% (H)); ctx.fillRect(sx, sy, 2, 2); }
+  for (let i=0;i<44;i++){ const sx=(i*97%W), sy=((i*53)%H); ctx.fillRect(sx, sy, 2, 2); }
+
+  // ラウンド進捗（10ゲームのピップ）
+  if (state !== "title") drawProgress();
 
   ctx.save();
   if (shakeT > 0) { const s = shakeT*22; ctx.translate((Math.random()-.5)*s,(Math.random()-.5)*s); }
-
-  // パネル
   for (const p of PANELS) drawPanel(p);
-
   ctx.restore();
 
-  // 状態テキスト（グリッドの下）
   drawStatus();
-
-  // 入力の制限時間バー
   if (state === "input") drawInputBar();
 
-  // 赤フラッシュ（ミス）
   if (redFlash > 0) { ctx.fillStyle = `rgba(255,50,50,${redFlash*0.32})`; ctx.fillRect(0,0,W,H); }
 
-  // バナー
   if (banner > 0) {
     ctx.save();
     ctx.globalAlpha = Math.min(1, banner*1.5);
     ctx.textAlign = "center";
     ctx.fillStyle = bannerGood ? "#7fe0a0" : "#ff7a7a";
-    ctx.font = "800 40px system-ui,sans-serif";
+    ctx.font = "800 34px system-ui,sans-serif";
     ctx.fillText(bannerText, W/2, H/2 - 40);
     ctx.restore();
   }
 }
 
+function drawProgress() {
+  const n = ROUNDS, gap = 8, r = 5;
+  const totalW = n*(r*2) + (n-1)*gap;
+  let x = (W - totalW)/2 + r, y = 150;
+  ctx.font = "800 14px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#9fb4e0";
+  const cur = Math.min(roundIdx+1, ROUNDS);
+  ctx.fillText("GAME " + cur + " / " + ROUNDS, W/2, y - 14);
+  for (let i=0;i<n;i++){
+    let col;
+    if (i < roundResults.length) col = roundResults[i] ? "#6ada6a" : "#ff6a6a";
+    else if (i === roundIdx && state !== "over") col = "#ffd54a";
+    else col = "rgba(255,255,255,.16)";
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x + i*(r*2+gap), y, r, 0, Math.PI*2); ctx.fill();
+  }
+}
+
 function drawPanel(p) {
   const lit = p.glow;
-  // 土台（暗め）
   roundRectPath(p.x, p.y, p.s, p.s, 20);
   ctx.fillStyle = shade(p.color, 0.32);
   ctx.fill();
-  // 内側のふち
   roundRectPath(p.x+2, p.y+2, p.s-4, p.s-4, 18);
   ctx.strokeStyle = "rgba(255,255,255,.06)"; ctx.lineWidth = 2; ctx.stroke();
 
@@ -472,7 +508,6 @@ function drawPanel(p) {
     ctx.shadowColor = p.color; ctx.shadowBlur = 34*lit;
     roundRectPath(p.x, p.y, p.s, p.s, 20);
     ctx.fillStyle = p.color; ctx.fill();
-    // 白いツヤ
     ctx.shadowBlur = 0; ctx.globalAlpha = Math.min(1, lit)*0.45;
     roundRectPath(p.x+p.s*0.16, p.y+p.s*0.12, p.s*0.68, p.s*0.32, 14);
     ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -502,7 +537,7 @@ function drawInputBar() {
 }
 
 function roundRectPath(x,y,w,h,r){
-  if (w <= 0 || h <= 0) { ctx.beginPath(); return; }   // 極小サイズのIndexSizeError回避（Day2の教訓）
+  if (w <= 0 || h <= 0) { ctx.beginPath(); return; }
   r = Math.max(0, Math.min(r, w/2, h/2));
   ctx.beginPath();
   ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
@@ -516,7 +551,7 @@ function toLocal(e) {
   const y = (e.clientY - rect.top) / rect.height * H;
   return { x, y };
 }
-document.getElementById("frame").addEventListener("pointerdown", (e) => {
+$("frame").addEventListener("pointerdown", (e) => {
   if (state !== "input") return;
   e.preventDefault();
   const p = toLocal(e);
@@ -547,16 +582,14 @@ function noise(dur, vol){
   const g = actx.createGain(); g.gain.value = vol||0.3;
   src.connect(g); g.connect(actx.destination); src.start();
 }
-// パネル固有の音（やわらかいベル）
 function beepNote(freq){ tone(freq, 0.34, "sine", 0.2); tone(freq*2, 0.18, "triangle", 0.06); }
 function beep(kind){
-  if (kind==="clear"){ tone(660,0.09,"triangle",0.14); tone(990,0.12,"triangle",0.12,0.06); }
-  else if (kind==="milestone"){ [0,4,7,12].forEach((s,i)=>tone(392*Math.pow(2,s/12),0.2,"triangle",0.14,i*0.08)); }
+  if (kind==="clear"){ [0,4,7,12].forEach((s,i)=>tone(523.25*Math.pow(2,s/12),0.16,"triangle",0.13,i*0.06)); }
   else if (kind==="wrong"){ noise(0.3,0.28); tone(150,0.35,"sawtooth",0.16); tone(90,0.4,"sawtooth",0.14,0.05); }
 }
-document.getElementById("muteBtn").addEventListener("click", (e) => {
+$("muteBtn").addEventListener("click", (e) => {
   e.stopPropagation(); muted = !muted;
-  document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+  $("muteBtn").textContent = muted ? "🔇" : "🔊";
 });
 
 /* ---------- 日別ベストの記録・可視化 ---------- */
@@ -574,7 +607,7 @@ function lastNDates(n){
   return arr;
 }
 function drawChart() {
-  const cv = document.getElementById("chart");
+  const cv = $("chart");
   const g = cv.getContext("2d");
   const cw = cv.width, ch = cv.height;
   g.clearRect(0,0,cw,ch);
@@ -586,7 +619,6 @@ function drawChart() {
   const n = keys.length;
   const gap = 8, bw = (cw - gap*(n-1)) / n;
   const baseY = ch - 24, topY = 14;
-  // 目盛りライン
   g.strokeStyle = "rgba(255,255,255,.08)"; g.lineWidth = 2;
   g.beginPath(); g.moveTo(0, baseY); g.lineTo(cw, baseY); g.stroke();
   for (let i=0;i<n;i++){
@@ -604,7 +636,7 @@ function drawChart() {
     roundRect2(g, x, y, bw, h, 5); g.fill();
     if (v > 0) {
       g.fillStyle = isToday ? "#ffffff" : "#9fb4e0";
-      g.font = "700 20px system-ui,sans-serif"; g.textAlign = "center";
+      g.font = "700 18px system-ui,sans-serif"; g.textAlign = "center";
       g.fillText(v, x+bw/2, y-6);
     }
   }
@@ -625,7 +657,6 @@ function share() {
   g.addColorStop(0,"#131d33"); g.addColorStop(1,"#0b1120");
   o.fillStyle = g; o.fillRect(0,0,cw,ch);
 
-  // 3×3 ミニパネル
   const gx = 150, gy = 150, cell = 100, pad = 10;
   for (let i=0;i<9;i++){
     const r = Math.floor(i/3), c = i%3;
@@ -633,11 +664,12 @@ function share() {
     o.fillStyle = COLORS[i];
     roundRect2(o, x, y, s, s, 16); o.fill();
   }
+  const clears = roundResults.filter(Boolean).length;
   o.textAlign = "center";
-  o.fillStyle = "#fff"; o.font = "800 120px system-ui,sans-serif";
-  o.fillText(score, cw/2, 590);
-  o.fillStyle = "#9fb4e0"; o.font = "700 30px system-ui,sans-serif";
-  o.fillText(T.finalLabel, cw/2, 636);
+  o.fillStyle = "#fff"; o.font = "800 110px system-ui,sans-serif";
+  o.fillText(score, cw/2, 585);
+  o.fillStyle = "#9fb4e0"; o.font = "700 28px system-ui,sans-serif";
+  o.fillText(T.finalLabel + " ・ " + diff.label + " ・ " + clears + "/" + ROUNDS + " " + T.clearsOf, cw/2, 632);
   o.fillStyle = "#cfe0ff"; o.font = "600 26px system-ui,sans-serif";
   o.fillText(T.title + "  ・  Day 4 / 100", cw/2, 706);
   o.fillStyle = "#8aa0cc"; o.font = "600 22px system-ui,sans-serif";
@@ -654,70 +686,33 @@ function share() {
   }, "image/png");
 }
 
-/* ---------- リワード広告（モック） ----------
-   本番は showRewardedAd() の中身を実際の動画リワード広告SDK
-   （AdSense H5 Games Ads / Capacitor+AdMob 等）に差し替える。
-   「最後まで視聴 → onReward() を呼ぶ」の契約だけ守れば良い。 */
-function showRewardedAd(onReward) {
-  const scr = document.getElementById("adScreen");
-  const fill = document.getElementById("adFill");
-  const status = document.getElementById("adStatus");
-  const claim = document.getElementById("adClaimBtn");
-  document.getElementById("adCopy").textContent = T.adCopy;
-  document.getElementById("adHint").textContent = T.adHint;
-  claim.textContent = T.adClaim;
-  claim.style.visibility = "hidden";
-  fill.style.width = "0%";
-  status.textContent = T.adPlaying + " 5";
-  scr.classList.remove("hidden");
-  ensureAudio();
-
-  const DUR = 5000;
-  const t0 = performance.now();
-  let finished = false;
-  function step(now) {
-    const p = Math.min(1, (now - t0) / DUR);
-    fill.style.width = (p * 100).toFixed(1) + "%";
-    if (p >= 1) {
-      finished = true;
-      status.textContent = T.adDone;
-      claim.style.visibility = "visible";
-      beep("clear");
-    } else {
-      status.textContent = T.adPlaying + " " + Math.ceil((1 - p) * DUR / 1000);
-      requestAnimationFrame(step);
-    }
-  }
-  requestAnimationFrame(step);
-
-  claim.onclick = (e) => {
-    e.stopPropagation();
-    if (!finished) return;
-    scr.classList.add("hidden");
-    onReward();
-  };
-}
-
 /* ---------- 開始・リトライ ---------- */
-function begin() {
+function startWith(d) {
   ensureAudio();
-  document.getElementById("startScreen").classList.add("hidden");
-  document.getElementById("overScreen").classList.add("hidden");
-  reset();
-  nextRound();               // 最初の1手を出してお手本開始
+  $("startScreen").classList.add("hidden");
+  $("overScreen").classList.add("hidden");
+  resetPlay(d);
+  startRound();
 }
-document.getElementById("startBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
-document.getElementById("retryBtn").addEventListener("click", (e)=>{ e.stopPropagation(); begin(); });
-document.getElementById("reviveBtn").addEventListener("click", (e)=>{ e.stopPropagation(); showRewardedAd(revive); });
-document.getElementById("shareBtn").addEventListener("click", (e)=>{ e.stopPropagation(); share(); });
+$("btnEasy").addEventListener("click",   (e)=>{ e.stopPropagation(); startWith(DIFF.easy); });
+$("btnNormal").addEventListener("click", (e)=>{ e.stopPropagation(); startWith(DIFF.normal); });
+$("btnHard").addEventListener("click",   (e)=>{ e.stopPropagation(); startWith(DIFF.hard); });
+$("retryBtn").addEventListener("click",  (e)=>{ e.stopPropagation(); $("overScreen").classList.add("hidden"); $("startScreen").classList.remove("hidden"); refreshBests(); });
+$("shareBtn").addEventListener("click",  (e)=>{ e.stopPropagation(); share(); });
 
-// スタート画面のベスト表示
-document.getElementById("startBest").textContent = best>0 ? (T.best + " : " + best) : "";
+// 難易度ボタンのベスト表示
+function refreshBests(){
+  const e = bestOf("easy"), n = bestOf("normal"), h = bestOf("hard");
+  $("easyB").textContent   = e>0 ? (T.best+" "+e) : "";
+  $("normalB").textContent = n>0 ? (T.best+" "+n) : "";
+  $("hardB").textContent   = h>0 ? (T.best+" "+h) : "";
+}
+refreshBests();
 
 // 初期状態（タイトル背景でパネルがきらめく）
-reset();
+score = 0; roundIdx = 0; roundResults = [];
 state = "title";
-document.getElementById("startScreen").classList.remove("hidden");
+$("startScreen").classList.remove("hidden");
 requestAnimationFrame(frame);
 
 /* ---------- PWA ---------- */

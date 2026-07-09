@@ -1,6 +1,6 @@
 // メモライト Service Worker（オフライン対応）
 // キャッシュを更新したいときは CACHE のバージョン番号を上げること
-const CACHE = 'memolight-v1';
+const CACHE = 'memolight-v2';
 const ASSETS = [
   './',
   './index.html',
